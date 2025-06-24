@@ -1,0 +1,58 @@
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #1a1a1a;
+    background-color: #f5f5f5;
+    line-height: 1.6;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  ul {
+    list-style: none;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-block bg-accent text-blanco px-6 py-3 rounded font-semibold transition-all duration-300 border-none cursor-pointer;
+  }
+  
+  .btn:hover {
+    @apply bg-primary transform -translate-y-0.5;
+  }
+
+  .container {
+    @apply w-full max-w-6xl mx-auto px-4;
+  }
+
+  .fade-in {
+    @apply opacity-0 transform translate-y-5 transition-all duration-500;
+  }
+
+  .fade-in.visible {
+    @apply opacity-100 transform translate-y-0;
+  }
+}
