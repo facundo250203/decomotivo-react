@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 
 const Inicio = () => {
   useEffect(() => {
@@ -29,15 +30,47 @@ const Inicio = () => {
 
   return (
     <>
+      <Helmet>
+        <title>DecoMotivo - Productos Decorativos Personalizados | Tucumán, Argentina</title>
+        <meta name="description" content="Bienvenidos a DecoMotivo. Creamos productos decorativos personalizados con dedicación y amor. Mates, tablas, MDF y más para transformar tus espacios en Tucumán." />
+        <meta name="keywords" content="DecoMotivo, productos decorativos, personalización, mates algarrobo, tablas madera, decoración hogar, Tucumán, artesanías argentinas" />
+        <link rel="canonical" href="https://www.decomotivo.com.ar/" />
+        
+        {/* Open Graph */}
+        <meta property="og:title" content="DecoMotivo - Productos Decorativos Personalizados | Tucumán" />
+        <meta property="og:description" content="Bienvenidos a DecoMotivo. Creamos productos decorativos personalizados con dedicación y amor para transformar tus espacios." />
+        <meta property="og:image" content="https://www.decomotivo.com.ar/images/hero-bg.jpg" />
+        <meta property="og:url" content="https://www.decomotivo.com.ar/" />
+        <meta property="og:type" content="website" />
+        
+        {/* Schema.org para página de inicio */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "DecoMotivo - Inicio",
+            "description": "Bienvenidos a DecoMotivo. Creamos productos decorativos personalizados con dedicación y amor para transformar tus espacios.",
+            "url": "https://www.decomotivo.com.ar/",
+            "mainEntity": {
+              "@type": "Organization",
+              "name": "DecoMotivo",
+              "foundingDate": "2022",
+              "description": "En DecoMotivo nos dedicamos a crear productos decorativos con un toque único y personalizados.",
+              "specialty": ["Mates personalizados", "Tablas de madera", "Productos en MDF", "Decoraciones"]
+            }
+          })}
+        </script>
+      </Helmet>
+
       {/* Hero Section */}
       <section 
         className="bg-gradient-to-r from-primary/85 to-secondary/90 bg-cover bg-center text-blanco text-center py-24"
         style={{ backgroundImage: "url('/images/hero-bg.jpg')" }}
       >
         <div className="container">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-5">
+          <h1 className="text-4xl lg:text-5xl font-bold mb-5">
             Bienvenidos a DecoMotivo
-          </h2>
+          </h1>
           <p className="text-xl mb-8 max-w-2xl mx-auto">
             Decorando Tu Vida...
           </p>
@@ -75,7 +108,7 @@ const Inicio = () => {
               <div className="rounded-xl overflow-hidden shadow-custom">
                 <img 
                   src="/images/about-us.jpg" 
-                  alt="Quienes Somos"
+                  alt="Equipo DecoMotivo trabajando en productos artesanales personalizados"
                   className="w-full h-auto"
                 />
               </div>
@@ -95,27 +128,31 @@ const Inicio = () => {
               {
                 img: '/images/destacado1.jpg',
                 title: 'Tablas de madera',
-                description: 'Tablas personalizadas, para uso personal, regalo empresarial, para locales gastronómicos, etc.'
+                description: 'Tablas personalizadas, para uso personal, regalo empresarial, para locales gastronómicos, etc.',
+                alt: 'Tablas de algarrobo personalizadas con grabado láser para uso gastronómico'
               },
               {
                 img: '/images/destacado2.jpg',
                 title: 'Cartelería en polifan',
-                description: 'Cartelería, cuadros y decoraciones en general, todo en polifan.'
+                description: 'Cartelería, cuadros y decoraciones en general, todo en polifan.',
+                alt: 'Cartelería decorativa y cuadros personalizados en polifan para negocios'
               },
               {
                 img: '/images/destacado3.jpg',
                 title: 'Mates de Algarrobo',
-                description: 'Mates de algarrobo con grabados personalizados, regalos empresariales, mates personales, etc.'
+                description: 'Mates de algarrobo con grabados personalizados, regalos empresariales, mates personales, etc.',
+                alt: 'Mates de algarrobo artesanales con grabado personalizado y bombilla incluida'
               }
             ].map((item, index) => (
-              <div 
+              <article 
                 key={index}
                 className="fade-in bg-fondo rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:-translate-y-2 hover:shadow-custom-lg"
               >
                 <img 
                   src={item.img}
-                  alt={item.title}
+                  alt={item.alt}
                   className="w-full h-64 object-cover"
+                  loading={index === 0 ? "eager" : "lazy"}
                 />
                 <div className="p-6">
                   <h3 className="text-xl font-semibold mb-2 text-secondary">
@@ -125,7 +162,7 @@ const Inicio = () => {
                     {item.description}
                   </p>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </div>

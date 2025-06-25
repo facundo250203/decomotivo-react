@@ -27,6 +27,51 @@ const ProductCategory = ({
     });
   }, []);
 
+  // Generar Schema.org para productos
+  const generateProductsSchema = () => {
+    const productsSchema = products.map(product => ({
+      "@type": "Product",
+      "name": product.titulo,
+      "description": product.descripcion,
+      "image": `https://www.decomotivo.com.ar${product.imagen}`,
+      "brand": {
+        "@type": "Brand",
+        "name": "DecoMotivo"
+      },
+      "manufacturer": {
+        "@type": "Organization",
+        "name": "DecoMotivo"
+      },
+      "material": product.material || undefined,
+      "offers": {
+        "@type": "Offer",
+        "availability": "https://schema.org/InStock",
+        "priceCurrency": "ARS",
+        "seller": {
+          "@type": "Organization",
+          "name": "DecoMotivo"
+        }
+      }
+    }));
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": title,
+      "description": description,
+      "url": canonicalUrl,
+      "mainEntity": {
+        "@type": "ItemList",
+        "numberOfItems": products.length,
+        "itemListElement": productsSchema.map((product, index) => ({
+          "@type": "ListItem",
+          "position": index + 1,
+          "item": product
+        }))
+      }
+    };
+  };
+
   return (
     <>
       <Helmet>
@@ -41,6 +86,17 @@ const ProductCategory = ({
         <meta property="og:image" content={`https://www.decomotivo.com.ar${backgroundImage}`} />
         <meta property="og:url" content={canonicalUrl} />
         <meta property="og:type" content="website" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seoTitle} />
+        <meta name="twitter:description" content={seoDescription} />
+        <meta name="twitter:image" content={`https://www.decomotivo.com.ar${backgroundImage}`} />
+        
+        {/* Schema.org */}
+        <script type="application/ld+json">
+          {JSON.stringify(generateProductsSchema())}
+        </script>
       </Helmet>
 
       {/* Banner de categoría */}
@@ -73,27 +129,45 @@ const ProductCategory = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {products.map((producto, index) => (
-              <div 
+              <article 
                 key={index}
                 className="producto-card bg-blanco rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:shadow-custom-lg"
+                itemScope
+                itemType="https://schema.org/Product"
               >
                 {/* Imagen del producto */}
                 <div className="h-72 overflow-hidden">
                   <img 
                     src={producto.imagen}
-                    alt={producto.titulo}
+                    alt={`${producto.titulo} - ${producto.descripcion}`}
                     className="w-full h-full object-cover"
+                    itemProp="image"
+                    loading={index < 3 ? "eager" : "lazy"}
                   />
                 </div>
 
                 {/* Info del producto */}
                 <div className="p-6">
-                  <h3 className="text-xl font-semibold mb-3 text-secondary">
+                  <h3 className="text-xl font-semibold mb-3 text-secondary" itemProp="name">
                     {producto.titulo}
                   </h3>
-                  <p className="text-texto mb-4">
+                  <p className="text-texto mb-4" itemProp="description">
                     {producto.descripcion}
                   </p>
+
+                  {/* Metadatos estructurados ocultos */}
+                  <div style={{display: 'none'}}>
+                    <span itemProp="brand" itemScope itemType="https://schema.org/Brand">
+                      <span itemProp="name">DecoMotivo</span>
+                    </span>
+                    {producto.material && (
+                      <span itemProp="material">{producto.material}</span>
+                    )}
+                    <div itemProp="offers" itemScope itemType="https://schema.org/Offer">
+                      <span itemProp="availability" content="https://schema.org/InStock">En stock</span>
+                      <span itemProp="priceCurrency" content="ARS">ARS</span>
+                    </div>
+                  </div>
 
                   {/* Detalles del producto */}
                   <div className="bg-gris-claro p-4 rounded-lg mb-4 space-y-2">
@@ -140,12 +214,13 @@ const ProductCategory = ({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full inline-flex items-center justify-center gap-3 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent hover:-translate-y-1"
+                    aria-label={`Consultar sobre ${producto.titulo} por WhatsApp`}
                   >
                     <i className="fab fa-whatsapp text-xl"></i>
                     Consultar por WhatsApp
                   </a>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         </div>
