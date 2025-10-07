@@ -13,6 +13,7 @@ export default {
         texto: '#1a1a1a',
         fondo: '#f5f5f5',
         blanco: '#ffffff',
+        negro: '#000000', 
         'gris-claro': '#e0e0e0',
         'gris-medio': '#757575'
       },

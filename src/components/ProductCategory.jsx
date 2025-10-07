@@ -1,6 +1,12 @@
+// src/components/ProductCategory.jsx
 import { Link } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
+import { useState } from 'react';
 
 const ProductCategory = ({ title, description, backgroundImage, products }) => {
+  const { addToCart } = useCart();
+  const [addedToCart, setAddedToCart] = useState({});
+
   // Función para formatear precios
   const formatPrice = (price) => {
     return new Intl.NumberFormat('es-AR', {
@@ -9,6 +15,17 @@ const ProductCategory = ({ title, description, backgroundImage, products }) => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(price);
+  };
+
+  // Función para agregar al carrito con feedback visual
+  const handleAddToCart = (product) => {
+    addToCart(product);
+    setAddedToCart({ ...addedToCart, [product.titulo]: true });
+    
+    // Quitar el mensaje después de 2 segundos
+    setTimeout(() => {
+      setAddedToCart({ ...addedToCart, [product.titulo]: false });
+    }, 2000);
   };
 
   return (
