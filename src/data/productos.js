@@ -54,7 +54,7 @@ export const productosData = {
         material: "Algarrobo",
         medidas: "35 cm x 20 cm",
         personalizable: "Si",
-        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20la%20Tabla%20para%20Picar.%20¿Podrían%20darme%20más%20información?"
+        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20la%20Tabla%20para%20DPicar.%20¿Podrían%20darme%20más%20información?"
       },
       {
         imagen: "/images/tablas/treboles.jpg",
