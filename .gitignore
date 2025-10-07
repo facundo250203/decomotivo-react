@@ -1,24 +1,53 @@
+# Dependencias
+node_modules/
+/.pnp
+.pnp.js
+
+# Build (NO subir a Git - se genera localmente)
+dist/
+dist-ssr/
+build/
+
+# Testing
+coverage/
+
+# Producción (archivos temporales)
+*.local
+
+# Variables de entorno
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 # Logs
-logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# Editor
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Sistema operativo
+Thumbs.db
+.DS_Store
+
+# Archivos temporales
+*.tmp
+*.temp
+.cache/
+
+# Otros
+*.log
+.eslintcache

@@ -1,3 +1,5 @@
+import { preconnect } from "react-dom";
+
 export const productosData = {
   tablas: {
     title: "Tablas",
@@ -7,6 +9,7 @@ export const productosData = {
       {
         imagen: "/images/tablas/tablitas.jpg",
         titulo: "Tablitas",
+        precio: 4000,
         descripcion: "Tablas de tamaños variados, todas personalizables.",
         material: "Algarrobo",
         medidas: "21 cm x 18 cm. Variadas",
@@ -16,6 +19,7 @@ export const productosData = {
       {
         imagen: "/images/tablas/desayuno.jpg",
         titulo: "Tabla Desayuno-Merienda",
+        precio: 5000,
         descripcion: "Tabla ideal para servir tus desayunos o meriendas.",
         material: "Eucalipto",
         medidas: "27 cm x 14 cm",
@@ -25,6 +29,7 @@ export const productosData = {
       {
         imagen: "/images/tablas/platos.jpg",
         titulo: "Platos",
+        precio: 6000,
         descripcion: "Platos individuales de Algarrobo.",
         material: "Algarrobo",
         medidas: "23 cm x 23 cm",
@@ -34,6 +39,7 @@ export const productosData = {
       {
         imagen: "/images/tablas/treboles.jpg",
         titulo: "Tréboles",
+        precio: 12000,
         descripcion: "Tablas con cuencos en forma de Tréboles ideales para tus picadas.",
         material: "Algarrobo",
         medidas: "40 cm x 25cm",
@@ -43,6 +49,7 @@ export const productosData = {
       {
         imagen: "/images/tablas/picar.jpg",
         titulo: "Tabla Uso Diario",
+        precio: 9000,
         descripcion: "Tabla ideal para uso diario.",
         material: "Algarrobo",
         medidas: "35 cm x 20 cm",
@@ -52,6 +59,7 @@ export const productosData = {
       {
         imagen: "/images/tablas/pizzera.jpg",
         titulo: "Pizzera",
+        precio: 13000,
         descripcion: "Tabla ideal para pizzas, duraderas y resistentes.",
         material: "Algarrobo",
         medidas: "29 cm y 32 cm",
@@ -61,6 +69,7 @@ export const productosData = {
       {
             imagen: "/images/tablas/pizzeradual.jpg",
             titulo: "Pizzera Dual",
+            precio: 15000,
             descripcion: "Tabla ideal para tus pizzas y picadas.",
             material: "Algarrobo",
             medidas: "33 cm",
@@ -70,6 +79,7 @@ export const productosData = {
       {
             imagen: "/images/tablas/tablasimple.jpg",
             titulo: "Tabla Simple",
+            precio: 15000,
             descripcion: "Tabla simple, multiuso.",
             material: "Algarrobo",
             medidas: "50 cm x 25 cm",
@@ -79,6 +89,7 @@ export const productosData = {
     {
             imagen: "/images/tablas/tabladual.jpg",
             titulo: "Tabla Dual",
+            precio: 16000,
             descripcion: "Tabla Dual, ideal para picadas y uso diario.",
             material: "Algarrobo",
             medidas: "50 cm x 25 cm",
@@ -88,6 +99,7 @@ export const productosData = {
     {
             imagen: "/images/tablas/tablamanijas.jpg",
             titulo: "Tabla con Manijas",
+            preciodesde: 18000,
             descripcion: "Tabla ideal para servir tus asados. Diferentes tamaños disponibles.",
             material: "Algarrobo",
             medidas: "60 cm x 30 cm",
@@ -105,6 +117,7 @@ export const productosData = {
       {
         imagen: "/images/mates/perita.jpg",
         titulo: "Mate Perita",
+        precio: 6500,
         descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
         material: "Algarrobo",
         medidas: "9 cm de Alto",
@@ -115,6 +128,7 @@ export const productosData = {
       {
         imagen: "/images/mates/barrilito.jpg",
         titulo: "Mate Barrilito",
+        precio: 7500,
         descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
         material: "Algarrobo",
         medidas: "10 cm de Alto",
@@ -125,6 +139,7 @@ export const productosData = {
       {
         imagen: "/images/mates/geometrico.jpg",
         titulo: "Mate Geométrico",
+        precio: 7500,
         descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
         material: "Algarrobo",
         medidas: "8,5 cm de Alto",
@@ -135,6 +150,7 @@ export const productosData = {
       {
         imagen: "/images/mates/hexagonal.jpg",
         titulo: "Mate Hexagonal",
+        precio: 8000,
         descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
         material: "Algarrobo",
         medidas: "9,5 cm de Alto",
@@ -145,6 +161,7 @@ export const productosData = {
       {
         imagen: "/images/mates/cilindrico.jpg",
         titulo: "Mate Cilíndrico",
+        precio: 7500,
         descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
         material: "Algarrobo",
         medidas: "9 cm de Alto",
@@ -155,6 +172,7 @@ export const productosData = {
       {
         imagen: "/images/mates/cilindricoenvirolado.jpg",
         titulo: "Mate Cilíndrico Envirolado",
+        precio: 9000,
         descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
         material: "Algarrobo",
         medidas: "9 cm de Alto",
@@ -165,6 +183,7 @@ export const productosData = {
       {
         imagen: "/images/mates/camionero.jpg",
         titulo: "Mate Camionero",
+        precio: 20000,
         descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
         material: "Algarrobo",
         medidas: "10,5 cm de Alto",
@@ -175,6 +194,7 @@ export const productosData = {
       {
         imagen: "/images/mates/imperial.jpg",
         titulo: "Mate Imperial",
+        precio: 22000,
         descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
         material: "Algarrobo",
         medidas: "10,5 cm de Alto",
@@ -185,6 +205,7 @@ export const productosData = {
       {
         imagen: "/images/mates/ferneteros.jpg",
         titulo: "Vasos Ferneteros",
+        precio: 9500,
         descripcion: "Vasos Ferneteros personalizables de aluminio. Varios colores.",
         material: "Aluminio",
         capacidad: "1 L",
@@ -195,6 +216,7 @@ export const productosData = {
       {
         imagen: "/images/mates/jarra.jpg",
         titulo: "Jarra Nórdica",
+        precioTexto: "Consultar",
         descripcion: "Jarra Nórdica personalizable.",
         material: "Algarrobo y aluminio",
         capacidad: "600 ml",
@@ -212,6 +234,7 @@ export const productosData = {
       {
         imagen: "/images/mdf/portabijou.jpg",
         titulo: "Porta Bijouterie",
+        precioTexto: "Consultar",
         descripcion: "Porta Bijouterie en MDF.",
         material: "MDF",
         medidas: "23 cm de alto",
@@ -221,6 +244,7 @@ export const productosData = {
       {
         imagen: "/images/mdf/portacollares.jpg",
         titulo: "Porta Collares",
+        precioTexto: "Consultar",
         descripcion: "Porta Collares en MDF.",
         material: "MDF",
         medidas: "26 cm de altura",
@@ -230,6 +254,7 @@ export const productosData = {
       {
         imagen: "/images/mdf/portacelulares.jpg",
         titulo: "Porta Celulares",
+        precioTexto: "Consultar",
         descripcion: "Porta Celulares en MDF, pintados o con imagen en vinilo.",
         material: "MDF y vinilo.",
         medidas: "18 cm de altura",
@@ -239,6 +264,7 @@ export const productosData = {
       {
         imagen: "/images/mdf/rompecabezaspalitos.jpg",
         titulo: "Rompecabezas Palitos",
+        precioTexto: "Consultar",
         descripcion: "Rompecabezas en MDF, varios diseños.",
         material: "MDF y vinilo",
         medidas: "14 cm de largo x 9 cm de ancho",
@@ -248,6 +274,7 @@ export const productosData = {
       {
         imagen: "/images/mdf/rompecabezasclasico.jpg",
         titulo: "Rompecabezas Clásico",
+        precioTexto: "Consultar",
         descripcion: "Rompecabezas en MDF, varios diseños.",
         material: "MDF y vinilo",
         medidas: "14 cm de largo x 14 cm de ancho",
@@ -257,6 +284,7 @@ export const productosData = {
       {
         imagen: "/images/mdf/relojes.jpg",
         titulo: "Relojes de Pared",
+        precioTexto: "Consultar",
         descripcion: "Reloj de Pared en MDF, con soporte.",
         material: "MDF",
         medidas: "Variedad disponible",
@@ -266,6 +294,7 @@ export const productosData = {
       {
         imagen: "/images/mdf/trofeos.jpg",
         titulo: "Trofeos",
+        precioTexto: "Consultar",
         descripcion: "Trofeos en MDF con imagen en vinilo.",
         material: "MDF",
         medidas: "Variedad disponible",
@@ -275,6 +304,7 @@ export const productosData = {
       {
         imagen: "/images/mdf/portasnacks.jpg",
         titulo: "Porta Snacks",
+        precioTexto: "Consultar",
         descripcion: "Porta Snacks en MDF, separadores opcionales.",
         material: "MDF",
         medidas: "Variedad disponible",
@@ -292,6 +322,7 @@ export const productosData = {
       {
         imagen: "/images/otros/bolsosmateros.jpg",
         titulo: "Bolsos Materos",
+        precioTexto: "Consultar",
         descripcion: "Bolso Matero con costura doble y base de mdf remachada",
         material: "Cuerina",
         medidas: "20 x 30 cm en total, 16 cm de profundidad",
@@ -301,6 +332,7 @@ export const productosData = {
       {
         imagen: "/images/otros/percheros.jpg",
         titulo: "Percheros de algarrobo",
+        precio: 8000,
         descripcion: "Percheros de algarrobo con 5 soportes.",
         material: "Madera Algarrobo",
         medidas: "60 cm de ancho y 6 cm de alto",
@@ -310,6 +342,7 @@ export const productosData = {
       {
         imagen: "/images/otros/portagorras.jpg",
         titulo: "Porta Gorras",
+        precio: 10000,
         descripcion: "Porta Gorras para 8 o 16 gorras.",
         material: "Madera Pino",
         medidas: "90 cm de alto",
@@ -319,6 +352,7 @@ export const productosData = {
       {
         imagen: "/images/otros/yerbera.jpg",
         titulo: "Yerberas y Azucareras",
+        precio: 8000,
         descripcion: "Para azúcar como para Yerba.",
         material: "Quebracho",
         medidas: "9 cm de Alto y 8 cm de Radio",
@@ -328,6 +362,7 @@ export const productosData = {
       {
         imagen: "/images/otros/gallina.jpg",
         titulo: "Gallina Porta Huevos",
+        precio: 8000,
         descripcion: "Porta huevos con forma de gallina para una docena de huevos.",
         material: "Madera Pino",
         medidas: "15 cm de Alto y 24 cm de Radio.",
@@ -337,6 +372,7 @@ export const productosData = {
       {
         imagen: "/images/otros/bombillas.jpg",
         titulo: "Bombillas de Aluminio",
+        precio: 1000,
         descripcion: "Bombillas de aluminio para todos tus mates.",
         material: "Aluminio",
         medidas: "14 cm de Alto",
@@ -346,6 +382,7 @@ export const productosData = {
       {
         imagen: "/images/otros/bombillaschatas.jpg",
         titulo: "Bombillas Chatas",
+        precio: 4000,
         descripcion: "Bombillas de acero inoxidable y virola de bronce.",
         material: "Acero inoxidable y bronce",
         medidas: "17 cm de Alto",
@@ -355,6 +392,7 @@ export const productosData = {
       {
         imagen: "/images/otros/limpiabombillas.jpg",
         titulo: "Limpia Bombillas",
+        precio: 1500,
         descripcion: "Limpia todas tus bombillas fácilmente.",
         material: "Aluminio",
         medidas: "15 cm de Alto",
@@ -364,6 +402,7 @@ export const productosData = {
       {
         imagen: "/images/otros/carteleria.jpg",
         titulo: "Carteleria en Polifan",
+        precioTexto: "Consultar",
         descripcion: "Cartelería para tu local comercial.",
         material: "Polifan",
         medidas: "A medida del cliente",
@@ -373,6 +412,7 @@ export const productosData = {
       {
         imagen: "/images/otros/vincores.jpg",
         titulo: "Vincores",
+        precioTexto: "Consultar",
         descripcion: "Vincores para constelaciones familiares.",
         material: "Madera Pino",
         medidas: "Variadas.",
@@ -382,6 +422,7 @@ export const productosData = {
       {
         imagen: "/images/otros/porcioneras.jpg",
         titulo: "Porcioneras",
+        precio: 3000,
         descripcion: "Porcioneras de algarrobo, ideales para servir tus pizzas y canelones.",
         material: "Madera Algarrobo",
         medidas: "32 cm",
@@ -391,6 +432,7 @@ export const productosData = {
       {
         imagen: "/images/otros/cucharas.jpg",
         titulo: "Cucharas",
+        precioDesde: 3000,
         descripcion: "Cucharas de Algarrobo personalizables.",
         material: "Madera Algarrobo",
         medidas: "32 y 40 cm de Alto",
@@ -409,6 +451,7 @@ export const productosData = {
       {
         imagen: "/images/combos/combo1.jpg",
         titulo: "Combo 1",
+        precioTexto: "Consultar",
         descripcion: "Combo de tablas, una para servir asado, y 6 platos individuales",
         material: "Algarrobo",
         medidas: "Consultar disponibilidad",
@@ -418,6 +461,7 @@ export const productosData = {
       {
         imagen: "/images/combos/combo2.jpg",
         titulo: "Combo 2",
+        precio: 33000,
         descripcion: "Set de 6 platos. Incluye canasto. Todo personalizable.",
         material: "Algarrobo",
         medidas: "23 cm",
@@ -427,6 +471,7 @@ export const productosData = {
       {
         imagen: "/images/combos/combo3.jpg",
         titulo: "Combo 3",
+        precioTexto: "Consultar",
         descripcion: "Tabla de madera y dos vasos ferneteros.",
         material: "Algarrobo y Aluminio",
         medidas: "Consultar Disponibilidad",
@@ -444,6 +489,7 @@ export const productosData = {
       {
         imagen: "/images/decoraciones/cuadrosMDF.jpg",
         titulo: "Cuadros en MDF",
+        precioTexto: "Consultar",
         descripcion: "Cuadros en MDF para colgar o pegar.",
         material: "MDF",
         medidas: "Variedad disponible",
@@ -453,6 +499,7 @@ export const productosData = {
       {
         imagen: "/images/decoraciones/cuadrospolifan.jpg",
         titulo: "Cuadros en Polifan",
+        precioTexto: "Consultar",
         descripcion: "Cuadros en Polifan para colgar y pegar, pintados a mano.",
         material: "Polifan",
         medidas: "Variedad disponible",
@@ -462,6 +509,7 @@ export const productosData = {
       {
         imagen: "/images/decoraciones/pesebres.jpg",
         titulo: "Pesebres",
+        precioTexto: "Consultar",
         descripcion: "Pesebres en MDF y vinilo.",
         material: "MDF y vinilo",
         medidas: "Variedad disponible",

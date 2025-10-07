@@ -1,0 +1,28 @@
+# .htaccess para DecoMotivo - React SPA en Hostinger
+
+# Habilitar RewriteEngine
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Redirigir de HTTP a HTTPS (SSL)
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Redirigir de www a no-www (RECOMENDADO)
+  RewriteCond %{HTTP_HOST} ^www\.decomotivo\.com\.ar [NC]
+  RewriteRule ^(.*)$ https://decomotivo.com.ar/$1 [L,R=301]
+
+  # No reescribir archivos o directorios que existen
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  
+  # Permitir acceso directo al PHP del formulario
+  RewriteCond %{REQUEST_URI} !^/procesar-contacto\.php$
+  
+  # Redirigir todo al index.html (SPA de React)
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Configuración de caché para mejorar rendimiento
+<IfModule mod_exp
