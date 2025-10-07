@@ -140,16 +140,37 @@ const ProductCategory = ({ title, description, backgroundImage, products }) => {
                     )}
                   </div>
 
-                  {/* Botón de WhatsApp */}
-                  <a
-                    href={producto.whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-3 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent hover:-translate-y-1"
-                  >
-                    <i className="fab fa-whatsapp text-xl"></i>
-                    Consultar por WhatsApp
-                  </a>
+                  {/* BOTONES CONDICIONALES - ESTA ES LA PARTE NUEVA */}
+                  {producto.precio || producto.precioDesde ? (
+                    // Si tiene precio, mostrar botón de AGREGAR AL CARRITO
+                    <div className="relative">
+                      <button
+                        onClick={() => handleAddToCart(producto)}
+                        className="w-full inline-flex items-center justify-center gap-3 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent hover:-translate-y-1"
+                      >
+                        <i className="fas fa-cart-plus text-xl"></i>
+                        Agregar al Carrito
+                      </button>
+                      
+                      {/* Mensaje de confirmación */}
+                      {addedToCart[producto.titulo] && (
+                        <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full bg-green-500 text-blanco px-4 py-2 rounded-lg shadow-lg text-sm font-semibold whitespace-nowrap">
+                          ✓ Agregado al carrito
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    // Si tiene precioTexto="Consultar", mostrar botón de WHATSAPP
+                    <a
+                      href={producto.whatsappUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-3 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent hover:-translate-y-1"
+                    >
+                      <i className="fab fa-whatsapp text-xl"></i>
+                      Consultar por WhatsApp
+                    </a>
+                  )}
                 </div>
               </div>
             ))}

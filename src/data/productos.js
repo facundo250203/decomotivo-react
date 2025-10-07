@@ -37,6 +37,26 @@ export const productosData = {
         whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20los%20Platos%20Individuales.%20¿Podrían%20darme%20más%20información?"
       },
       {
+        imagen: "/images/tablas/usodiario.jpg",
+        titulo: "Tabla Uso Diario",
+        precio: 9000,
+        descripcion: "Tabla ideal para uso diario.",
+        material: "Algarrobo",
+        medidas: "35 cm x 20 cm",
+        personalizable: "Si",
+        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20la%20Tabla%20Uso%20Diario.%20¿Podrían%20darme%20más%20información?"
+      },
+      {
+        imagen: "/images/tablas/picar.jpg",
+        titulo: "Tabla para Picar",
+        precio: 10000,
+        descripcion: "Tabla ideal para picar distintos alimentos.",
+        material: "Algarrobo",
+        medidas: "35 cm x 20 cm",
+        personalizable: "Si",
+        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20la%20Tabla%20para%20Picar.%20¿Podrían%20darme%20más%20información?"
+      },
+      {
         imagen: "/images/tablas/treboles.jpg",
         titulo: "Tréboles",
         precio: 12000,
@@ -45,16 +65,6 @@ export const productosData = {
         medidas: "40 cm x 25cm",
         personalizable: "Si",
         whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20los%20Tréboles.%20¿Podrían%20darme%20más%20información?"
-      },
-      {
-        imagen: "/images/tablas/picar.jpg",
-        titulo: "Tabla Uso Diario",
-        precio: 9000,
-        descripcion: "Tabla ideal para uso diario.",
-        material: "Algarrobo",
-        medidas: "35 cm x 20 cm",
-        personalizable: "Si",
-        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20la%20Tabla%20Uso%20Diario.%20¿Podrían%20darme%20más%20información?"
       },
       {
         imagen: "/images/tablas/pizzera.jpg",
@@ -148,6 +158,17 @@ export const productosData = {
         whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20el%20Mate%20Geométrico.%20¿Podrían%20darme%20más%20información?"
       },
       {
+        imagen: "/images/mates/cilindrico.jpg",
+        titulo: "Mate Cilíndrico",
+        precio: 7500,
+        descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
+        material: "Algarrobo",
+        medidas: "9 cm de Alto",
+        personalizable: "Si",
+        incluye: "Bombilla",
+        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20el%20Mate%20Cilíndrico.%20¿Podrían%20darme%20más%20información?"
+      },
+      {
         imagen: "/images/mates/hexagonal.jpg",
         titulo: "Mate Hexagonal",
         precio: 8000,
@@ -159,15 +180,15 @@ export const productosData = {
         whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20el%20Mate%20Hexagonal.%20¿Podrían%20darme%20más%20información?"
       },
       {
-        imagen: "/images/mates/cilindrico.jpg",
-        titulo: "Mate Cilíndrico",
-        precio: 7500,
+        imagen: "/images/mates/hexagonalXXL.jpg",
+        titulo: "Mate Hexagonal XXL",
+        precio: 9000,
         descripcion: "Mate de Algarrobo personalizable con bombilla de color a elección.",
         material: "Algarrobo",
-        medidas: "9 cm de Alto",
+        medidas: "11 cm de Alto",
         personalizable: "Si",
         incluye: "Bombilla",
-        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20el%20Mate%20Cilíndrico.%20¿Podrían%20darme%20más%20información?"
+        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20el%20Mate%20HexagonalXXL.%20¿Podrían%20darme%20más%20información?"
       },
       {
         imagen: "/images/mates/cilindricoenvirolado.jpg",
@@ -203,6 +224,28 @@ export const productosData = {
         whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20el%20Mate%20Imperial.%20¿Podrían%20darme%20más%20información?"
       },
       {
+        imagen: "/images/mates/calabazaCamionero.jpg",
+        titulo: "Mate Camionero de Calabaza",
+        precio: 25000,
+        descripcion: "Mate de calabaza forrado con cuero personalizable con bombilla chata.",
+        material: "Algarrobo",
+        medidas: "10,5 cm de Alto",
+        personalizable: "Si",
+        incluye: "Bombilla Chata y Caja de MDF",
+        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20el%20Mate%20Camionero%20de%20Calabaza.%20¿Podrían%20darme%20más%20información?"
+      },
+      {
+        imagen: "/images/mates/calabazaImperial.jpg",
+        titulo: "Mate Imperial",
+        precio: 30000,
+        descripcion: "Mate de calabaza forrado con cuero personalizable con bombilla chata.",
+        material: "Algarrobo",
+        medidas: "10,5 cm de Alto",
+        personalizable: "Si",
+        incluye: "Bombilla Chata y Caja de MDF",
+        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20el%20Mate%20Imperial%20de%20Calabaza.%20¿Podrían%20darme%20más%20información?"
+      },
+      {
         imagen: "/images/mates/ferneteros.jpg",
         titulo: "Vasos Ferneteros",
         precio: 9500,
@@ -222,6 +265,16 @@ export const productosData = {
         capacidad: "600 ml",
         personalizable: "Si",
         whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20el%20Jarro%20Nórdico.%20¿Podrían%20darme%20más%20información?"
+      },
+      {
+        imagen: "/images/mates/yerbera.jpg",
+        titulo: "Yerberas y Azucareras",
+        precio: 8000,
+        descripcion: "Para azúcar como para Yerba.",
+        material: "Quebracho",
+        medidas: "9 cm de Alto y 8 cm de Radio",
+        personalizable: "Si",
+        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20las%20Yerberas%20y%20Azucareras.%20¿Podrían%20darme%20más%20información?"
       }
     ]
   },
@@ -350,16 +403,6 @@ export const productosData = {
         whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20los%20PortaGorras.%20¿Podrían%20darme%20más%20información?"
       },
       {
-        imagen: "/images/otros/yerbera.jpg",
-        titulo: "Yerberas y Azucareras",
-        precio: 8000,
-        descripcion: "Para azúcar como para Yerba.",
-        material: "Quebracho",
-        medidas: "9 cm de Alto y 8 cm de Radio",
-        personalizable: "Si",
-        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20las%20Yerberas%20y%20Azucareras.%20¿Podrían%20darme%20más%20información?"
-      },
-      {
         imagen: "/images/otros/gallina.jpg",
         titulo: "Gallina Porta Huevos",
         precio: 8000,
@@ -388,6 +431,16 @@ export const productosData = {
         medidas: "17 cm de Alto",
         Personalizable: "Si",
         whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20las%20Bombillas%20Chatas.%20¿Podrían%20darme%20más%20información?"
+      },
+            {
+        imagen: "/images/otros/bombillaspaleta.jpg",
+        titulo: "Bombillas Chatas",
+        precio: 6000,
+        descripcion: "Bombillas de acero inoxidable y virola de bronce.",
+        material: "Acero inoxidable y bronce",
+        medidas: "15 cm de Alto",
+        Personalizable: "Si",
+        whatsappUrl: "https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20estoy%20interesado/a%20en%20las%20Bombillas%20Paleta.%20¿Podrían%20darme%20más%20información?"
       },
       {
         imagen: "/images/otros/limpiabombillas.jpg",
