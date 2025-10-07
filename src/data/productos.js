@@ -99,7 +99,7 @@ export const productosData = {
     {
             imagen: "/images/tablas/tablamanijas.jpg",
             titulo: "Tabla con Manijas",
-            preciodesde: 18000,
+            precioDesde: 18000,
             descripcion: "Tabla ideal para servir tus asados. Diferentes tamaños disponibles.",
             material: "Algarrobo",
             medidas: "60 cm x 30 cm",
