@@ -11,16 +11,16 @@ const createProduct = async (req, res) => {
       titulo,
       slug,
       descripcion,
-      precio,
-      precio_desde,
-      precio_texto,
+      precio_valor,
+      precio_tipo,
       material,
       medidas,
       capacidad,
       personalizable,
       colores,
-      stock,
-      control_stock,
+      cantidad,
+      tiempo_entrega_tipo,
+      tiempo_entrega_dias,
       destacado
     } = req.body;
 
@@ -32,28 +32,36 @@ const createProduct = async (req, res) => {
       });
     }
 
+    // Validar precio_tipo
+    if (precio_tipo && !['fijo', 'desde', 'consultar'].includes(precio_tipo)) {
+      return res.status(400).json({
+        success: false,
+        error: 'precio_tipo debe ser: fijo, desde, o consultar'
+      });
+    }
+
     // Insertar producto
     const [result] = await promisePool.query(
       `INSERT INTO productos (
-        categoria_id, titulo, slug, descripcion, precio, precio_desde,
-        precio_texto, material, medidas, capacidad, personalizable,
-        colores, stock, control_stock, destacado, activo
+        categoria_id, titulo, slug, descripcion, precio_valor, precio_tipo,
+        material, medidas, capacidad, personalizable, colores, cantidad,
+        tiempo_entrega_tipo, tiempo_entrega_dias, destacado, activo
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)`,
       [
         categoria_id,
         titulo,
         slug,
         descripcion || null,
-        precio || null,
-        precio_desde || false,
-        precio_texto || null,
+        precio_valor || null,
+        precio_tipo || 'fijo',
         material || null,
         medidas || null,
         capacidad || null,
         personalizable || false,
         colores || null,
-        stock || 0,
-        control_stock || false,
+        cantidad || 0,
+        tiempo_entrega_tipo || 'dias',
+        tiempo_entrega_dias || 3,
         destacado || false
       ]
     );
@@ -111,6 +119,14 @@ const updateProduct = async (req, res) => {
       });
     }
 
+    // Validar precio_tipo si viene en el update
+    if (updates.precio_tipo && !['fijo', 'desde', 'consultar'].includes(updates.precio_tipo)) {
+      return res.status(400).json({
+        success: false,
+        error: 'precio_tipo debe ser: fijo, desde, o consultar'
+      });
+    }
+
     // Construir query dinámico
     const fields = Object.keys(updates);
     const values = Object.values(updates);
@@ -126,7 +142,7 @@ const updateProduct = async (req, res) => {
     values.push(id);
 
     await promisePool.query(
-      `UPDATE productos SET ${setClause}, fecha_actualizacion = NOW() WHERE id = ?`,
+      `UPDATE productos SET ${setClause} WHERE id = ?`,
       values
     );
 

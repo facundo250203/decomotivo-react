@@ -40,13 +40,18 @@ const authenticateToken = (req, res, next) => {
 };
 
 // ============================================
-// MIDDLEWARE PARA VERIFICAR ROL ADMIN
+// MIDDLEWARE PARA VERIFICAR ADMIN
+// NOTA: En la BD simplificada no hay roles, 
+// así que este middleware solo verifica que 
+// el usuario esté autenticado
 // ============================================
 const requireAdmin = (req, res, next) => {
-  if (req.user.rol !== 'admin') {
+  // En la BD simplificada todos los usuarios autenticados son admin
+  // porque solo hay 2 personas que administran
+  if (!req.user) {
     return res.status(403).json({
       success: false,
-      error: 'Acceso denegado. Se requiere rol de administrador.'
+      error: 'Acceso denegado. Se requiere autenticación.'
     });
   }
   next();

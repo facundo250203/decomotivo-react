@@ -1,12 +1,8 @@
 // src/components/ProductCategory.jsx
 import { Link } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
-import { useState } from 'react';
 
 const ProductCategory = ({ title, description, backgroundImage, products }) => {
-  const { addToCart } = useCart();
-  const [addedToCart, setAddedToCart] = useState({});
-
+  
   // Función para formatear precios
   const formatPrice = (price) => {
     return new Intl.NumberFormat('es-AR', {
@@ -15,17 +11,6 @@ const ProductCategory = ({ title, description, backgroundImage, products }) => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(price);
-  };
-
-  // Función para agregar al carrito con feedback visual
-  const handleAddToCart = (product) => {
-    addToCart(product);
-    setAddedToCart({ ...addedToCart, [product.titulo]: true });
-    
-    // Quitar el mensaje después de 2 segundos
-    setTimeout(() => {
-      setAddedToCart({ ...addedToCart, [product.titulo]: false });
-    }, 2000);
   };
 
   return (
@@ -140,27 +125,9 @@ const ProductCategory = ({ title, description, backgroundImage, products }) => {
                     )}
                   </div>
 
-                  {/* BOTONES CONDICIONALES - ESTA ES LA PARTE NUEVA */}
-                  {producto.precio || producto.precioDesde ? (
-                    // Si tiene precio, mostrar botón de AGREGAR AL CARRITO
-                    <div className="relative">
-                      <button
-                        onClick={() => handleAddToCart(producto)}
-                        className="w-full inline-flex items-center justify-center gap-3 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent hover:-translate-y-1"
-                      >
-                        <i className="fas fa-cart-plus text-xl"></i>
-                        Agregar al Carrito
-                      </button>
-                      
-                      {/* Mensaje de confirmación */}
-                      {addedToCart[producto.titulo] && (
-                        <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full bg-green-500 text-blanco px-4 py-2 rounded-lg shadow-lg text-sm font-semibold whitespace-nowrap">
-                          ✓ Agregado al carrito
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    // Si tiene precioTexto="Consultar", mostrar botón de WHATSAPP
+                  {/* BOTONES CONDICIONALES */}
+                  {producto.precio ? (
+                    // Si tiene PRECIO FIJO → Botón "Quiero este producto"
                     <a
                       href={producto.whatsappUrl}
                       target="_blank"
@@ -168,7 +135,18 @@ const ProductCategory = ({ title, description, backgroundImage, products }) => {
                       className="w-full inline-flex items-center justify-center gap-3 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent hover:-translate-y-1"
                     >
                       <i className="fab fa-whatsapp text-xl"></i>
-                      Consultar por WhatsApp
+                      Quiero este producto
+                    </a>
+                  ) : (
+                    // Si tiene precioDesde o precioTexto → Botón "Consultar"
+                    <a
+                      href={producto.whatsappUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-3 bg-secondary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-gris-medio hover:-translate-y-1"
+                    >
+                      <i className="fab fa-whatsapp text-xl"></i>
+                      Consultar
                     </a>
                   )}
                 </div>

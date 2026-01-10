@@ -1,27 +1,38 @@
 const { promisePool } = require('../config/database');
 
 // ============================================
-// HELPER: Estructurar producto con imágenes
+// FUNCIÓN HELPER: Estructurar producto con imágenes
 // ============================================
 const structureProductWithImages = (rows) => {
   if (rows.length === 0) return null;
 
   const product = {
     id: rows[0].id,
+    categoria_id: rows[0].categoria_id,
     titulo: rows[0].titulo,
     slug: rows[0].slug,
     descripcion: rows[0].descripcion,
-    precio: rows[0].precio ? parseFloat(rows[0].precio) : null,
-    precio_desde: Boolean(rows[0].precio_desde),
-    precio_texto: rows[0].precio_texto,
+    
+    // PRECIO - Estructura simplificada
+    precio_valor: rows[0].precio_valor ? parseFloat(rows[0].precio_valor) : null,
+    precio_tipo: rows[0].precio_tipo,
+    
     material: rows[0].material,
     medidas: rows[0].medidas,
     capacidad: rows[0].capacidad,
     personalizable: Boolean(rows[0].personalizable),
     colores: rows[0].colores,
-    stock: rows[0].stock,
-    control_stock: Boolean(rows[0].control_stock),
+    
+    // CANTIDAD (stock)
+    cantidad: rows[0].cantidad,
+    
+    // TIEMPO DE ENTREGA
+    tiempo_entrega_tipo: rows[0].tiempo_entrega_tipo,
+    tiempo_entrega_dias: rows[0].tiempo_entrega_dias,
+    
     destacado: Boolean(rows[0].destacado),
+    activo: Boolean(rows[0].activo),
+    
     categoria: {
       id: rows[0].categoria_id,
       nombre: rows[0].categoria_nombre,
@@ -42,9 +53,7 @@ const structureProductWithImages = (rows) => {
         if (a.es_principal && !b.es_principal) return -1;
         if (!a.es_principal && b.es_principal) return 1;
         return a.orden - b.orden;
-      }),
-    fecha_creacion: rows[0].fecha_creacion,
-    fecha_actualizacion: rows[0].fecha_actualizacion
+      })
   };
 
   return product;
@@ -64,19 +73,18 @@ const getAllProducts = async (req, res) => {
         p.titulo,
         p.slug,
         p.descripcion,
-        p.precio,
-        p.precio_desde,
-        p.precio_texto,
+        p.precio_valor,
+        p.precio_tipo,
         p.material,
         p.medidas,
         p.capacidad,
         p.personalizable,
         p.colores,
-        p.stock,
-        p.control_stock,
+        p.cantidad,
+        p.tiempo_entrega_tipo,
+        p.tiempo_entrega_dias,
         p.destacado,
-        p.fecha_creacion,
-        p.fecha_actualizacion,
+        p.activo,
         c.nombre as categoria_nombre,
         c.slug as categoria_slug,
         i.id as imagen_id,
@@ -104,7 +112,7 @@ const getAllProducts = async (req, res) => {
       params.push(categoria_id);
     }
 
-    query += ` ORDER BY p.destacado DESC, p.fecha_creacion DESC`;
+    query += ` ORDER BY p.destacado DESC, p.id DESC`;
     query += ` LIMIT ? OFFSET ?`;
     params.push(parseInt(limit), parseInt(offset));
 
@@ -152,19 +160,18 @@ const getProductBySlug = async (req, res) => {
         p.titulo,
         p.slug,
         p.descripcion,
-        p.precio,
-        p.precio_desde,
-        p.precio_texto,
+        p.precio_valor,
+        p.precio_tipo,
         p.material,
         p.medidas,
         p.capacidad,
         p.personalizable,
         p.colores,
-        p.stock,
-        p.control_stock,
+        p.cantidad,
+        p.tiempo_entrega_tipo,
+        p.tiempo_entrega_dias,
         p.destacado,
-        p.fecha_creacion,
-        p.fecha_actualizacion,
+        p.activo,
         c.nombre as categoria_nombre,
         c.slug as categoria_slug,
         i.id as imagen_id,
@@ -217,19 +224,18 @@ const getProductsByCategory = async (req, res) => {
         p.titulo,
         p.slug,
         p.descripcion,
-        p.precio,
-        p.precio_desde,
-        p.precio_texto,
+        p.precio_valor,
+        p.precio_tipo,
         p.material,
         p.medidas,
         p.capacidad,
         p.personalizable,
         p.colores,
-        p.stock,
-        p.control_stock,
+        p.cantidad,
+        p.tiempo_entrega_tipo,
+        p.tiempo_entrega_dias,
         p.destacado,
-        p.fecha_creacion,
-        p.fecha_actualizacion,
+        p.activo,
         c.nombre as categoria_nombre,
         c.slug as categoria_slug,
         i.id as imagen_id,
@@ -242,7 +248,7 @@ const getProductsByCategory = async (req, res) => {
       LEFT JOIN categorias c ON p.categoria_id = c.id
       LEFT JOIN imagenes_productos i ON p.id = i.producto_id
       WHERE p.categoria_id = ? AND p.activo = true
-      ORDER BY p.destacado DESC, p.fecha_creacion DESC
+      ORDER BY p.destacado DESC, p.id DESC
     `, [categoriaId]);
 
     // Agrupar productos con sus imágenes
@@ -288,19 +294,18 @@ const getFeaturedProducts = async (req, res) => {
         p.titulo,
         p.slug,
         p.descripcion,
-        p.precio,
-        p.precio_desde,
-        p.precio_texto,
+        p.precio_valor,
+        p.precio_tipo,
         p.material,
         p.medidas,
         p.capacidad,
         p.personalizable,
         p.colores,
-        p.stock,
-        p.control_stock,
+        p.cantidad,
+        p.tiempo_entrega_tipo,
+        p.tiempo_entrega_dias,
         p.destacado,
-        p.fecha_creacion,
-        p.fecha_actualizacion,
+        p.activo,
         c.nombre as categoria_nombre,
         c.slug as categoria_slug,
         i.id as imagen_id,
@@ -313,7 +318,7 @@ const getFeaturedProducts = async (req, res) => {
       LEFT JOIN categorias c ON p.categoria_id = c.id
       LEFT JOIN imagenes_productos i ON p.id = i.producto_id
       WHERE p.destacado = true AND p.activo = true
-      ORDER BY p.fecha_creacion DESC
+      ORDER BY p.id DESC
       LIMIT ?
     `, [parseInt(limit)]);
 
@@ -359,19 +364,18 @@ const getProductById = async (req, res) => {
         p.titulo,
         p.slug,
         p.descripcion,
-        p.precio,
-        p.precio_desde,
-        p.precio_texto,
+        p.precio_valor,
+        p.precio_tipo,
         p.material,
         p.medidas,
         p.capacidad,
         p.personalizable,
         p.colores,
-        p.stock,
-        p.control_stock,
+        p.cantidad,
+        p.tiempo_entrega_tipo,
+        p.tiempo_entrega_dias,
         p.destacado,
-        p.fecha_creacion,
-        p.fecha_actualizacion,
+        p.activo,
         c.nombre as categoria_nombre,
         c.slug as categoria_slug,
         i.id as imagen_id,

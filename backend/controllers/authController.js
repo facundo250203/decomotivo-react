@@ -17,9 +17,9 @@ const login = async (req, res) => {
       });
     }
 
-    // Buscar usuario por email
+    // Buscar usuario por email (sin filtro de activo - tabla simplificada)
     const [users] = await promisePool.query(
-      'SELECT * FROM usuarios WHERE email = ? AND activo = true',
+      'SELECT * FROM usuarios WHERE email = ?',
       [email]
     );
 
@@ -42,13 +42,12 @@ const login = async (req, res) => {
       });
     }
 
-    // Generar JWT token
+    // Generar JWT token (sin rol - BD simplificada)
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
-        nombre: user.nombre,
-        rol: user.rol
+        nombre: user.nombre
       },
       process.env.JWT_SECRET,
       {
@@ -64,8 +63,7 @@ const login = async (req, res) => {
         user: {
           id: user.id,
           nombre: user.nombre,
-          email: user.email,
-          rol: user.rol
+          email: user.email
         }
       }
     });
