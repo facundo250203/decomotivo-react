@@ -1,8 +1,12 @@
 import { Link } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { productsAPI } from '../services/api';
 
 const Inicio = () => {
+  const [productosDestacados, setProductosDestacados] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     // Intersection Observer para animaciones
     const observerOptions = {
@@ -26,6 +30,24 @@ const Inicio = () => {
     });
 
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const fetchProductosDestacados = async () => {
+      try {
+        setLoading(true);
+        const response = await productsAPI.getFeatured(3);
+        if (response.success) {
+          setProductosDestacados(response.data || []);
+        }
+      } catch (error) {
+        console.error('Error cargando productos destacados:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProductosDestacados();
   }, []);
 
   return (
@@ -55,42 +77,45 @@ const Inicio = () => {
               "@type": "Organization",
               "name": "DecoMotivo",
               "foundingDate": "2022",
-              "description": "En DecoMotivo nos dedicamos a crear productos decorativos con un toque único y personalizados.",
-              "specialty": ["Mates personalizados", "Tablas de madera", "Productos en MDF", "Decoraciones"]
+              "description": "En DecoMotivo nos dedicamos a crear productos decorativos con un toque único y personalizados."
             }
           })}
         </script>
       </Helmet>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <section 
-        className="bg-gradient-to-r from-primary/85 to-secondary/90 bg-cover bg-center text-blanco text-center py-24"
+        className="relative bg-cover bg-center text-blanco text-center py-32 lg:py-40"
         style={{ backgroundImage: "url('/images/hero-bg.jpg')" }}
       >
-        <div className="container">
-          <h1 className="text-4xl lg:text-5xl font-bold mb-5">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-secondary/90"></div>
+        
+        <div className="container relative z-10">
+          <h1 className="text-4xl lg:text-6xl font-bold mb-6 text-shadow-lg">
             Bienvenidos a DecoMotivo
           </h1>
-          <p className="text-xl mb-8 max-w-2xl mx-auto">
-            Decorando Tu Vida...
+          <p className="text-xl lg:text-2xl mb-10 max-w-3xl mx-auto text-shadow-sm">
+            Creamos productos decorativos personalizados con dedicación y amor.
+            Transformá tus espacios con diseños únicos.
           </p>
-          <Link to="/productos" className="btn text-lg">
+          <Link to="/productos" className="btn text-lg px-8 py-4">
             Ver Productos
           </Link>
         </div>
       </section>
 
       {/* Quienes Somos */}
-      <section className="py-20">
+      <section className="py-20 bg-fondo">
         <div className="container">
-          <h2 className="text-3xl lg:text-4xl font-bold text-center mb-10 text-secondary">
-            Quienes Somos
+          <h2 className="text-3xl lg:text-4xl font-bold text-center mb-12 text-secondary">
+            ¿Quiénes Somos?
           </h2>
-          <div className="fade-in flex flex-col lg:flex-row items-center gap-10">
-            <div className="flex-1 space-y-4 text-lg">
+          <div className="flex flex-col lg:flex-row gap-12 items-center">
+            <div className="flex-1 space-y-6 text-lg text-texto">
               <p>
                 En DecoMotivo nos dedicamos a crear productos decorativos con un
-                toque único y personalizados. Cada pieza es elaborada con
+                toque único y personalizados, diseñados especialmente para vos.
+                Cada pieza es elaborada con
                 dedicación y amor para transformar tus espacios.
               </p>
               <p>
@@ -123,48 +148,54 @@ const Inicio = () => {
           <h2 className="text-3xl lg:text-4xl font-bold text-center mb-10 text-secondary">
             Nuestros Trabajos Destacados
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                img: '/images/destacado1.jpg',
-                title: 'Tablas de madera',
-                description: 'Tablas personalizadas, para uso personal, regalo empresarial, para locales gastronómicos, etc.',
-                alt: 'Tablas de algarrobo personalizadas con grabado láser para uso gastronómico'
-              },
-              {
-                img: '/images/destacado2.jpg',
-                title: 'Cartelería en polifan',
-                description: 'Cartelería, cuadros y decoraciones en general, todo en polifan.',
-                alt: 'Cartelería decorativa y cuadros personalizados en polifan para negocios'
-              },
-              {
-                img: '/images/destacado3.jpg',
-                title: 'Mates de Algarrobo',
-                description: 'Mates de algarrobo con grabados personalizados, regalos empresariales, mates personales, etc.',
-                alt: 'Mates de algarrobo artesanales con grabado personalizado y bombilla incluida'
-              }
-            ].map((item, index) => (
-              <article 
-                key={index}
-                className="fade-in bg-fondo rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:-translate-y-2 hover:shadow-custom-lg"
-              >
-                <img 
-                  src={item.img}
-                  alt={item.alt}
-                  className="w-full h-64 object-cover"
-                  loading={index === 0 ? "eager" : "lazy"}
-                />
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold mb-2 text-secondary">
-                    {item.title}
-                  </h3>
-                  <p className="text-texto">
-                    {item.description}
-                  </p>
-                </div>
-              </article>
-            ))}
-          </div>
+          
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+              <p className="text-lg text-texto">Cargando productos destacados...</p>
+            </div>
+          ) : productosDestacados.length === 0 ? (
+            <div className="text-center py-16">
+              <p className="text-xl text-texto">
+                Estamos trabajando en productos increíbles. Volvé pronto para verlos.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {productosDestacados.map((producto, index) => (
+                <article 
+                  key={producto.id}
+                  className="fade-in bg-fondo rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:-translate-y-2 hover:shadow-custom-lg"
+                >
+                  {/* Imagen del producto */}
+                  <div className="h-64 overflow-hidden bg-gris-claro">
+                    {producto.imagenes && producto.imagenes.length > 0 ? (
+                      <img 
+                        src={producto.imagenes[0].url}
+                        alt={producto.imagenes[0].alt_text || producto.titulo}
+                        className="w-full h-full object-cover"
+                        loading={index === 0 ? "eager" : "lazy"}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gris-medio">
+                        <i className="fas fa-image text-6xl"></i>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info del producto */}
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold mb-2 text-secondary">
+                      {producto.titulo}
+                    </h3>
+                    <p className="text-texto">
+                      {producto.descripcion || 'Producto artesanal personalizado de alta calidad.'}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </>

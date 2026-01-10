@@ -1,6 +1,5 @@
 import { Helmet } from 'react-helmet-async';
 import ProductCategory from '../components/ProductCategory';
-import { productosData } from '../data/productos';
 
 const Otros = () => {
   return (
@@ -45,12 +44,7 @@ const Otros = () => {
         <meta name="ICBM" content="-26.8083, -65.2176" />
       </Helmet>
 
-      <ProductCategory 
-        title={productosData.otros.title}
-        description={productosData.otros.description}
-        backgroundImage={productosData.otros.backgroundImage}
-        products={productosData.otros.products}
-      />
+      <ProductCategory categorySlug="otros" />
     </>
   );
 };
