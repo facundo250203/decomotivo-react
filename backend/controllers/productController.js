@@ -20,7 +20,7 @@ const structureProductWithImages = (rows) => {
     material: rows[0].material,
     medidas: rows[0].medidas,
     capacidad: rows[0].capacidad,
-    personalizable: Boolean(rows[0].personalizable),
+    personalizable: rows[0].personalizable ? 'Sí' : 'No',
     colores: rows[0].colores,
     
     // CANTIDAD (stock)
