@@ -57,16 +57,16 @@ app.get('/health', (req, res) => {
 });
 
 // ============================================
-// RUTAS DE LA API (las crearemos después)
+// RUTAS DE LA API
 // ============================================
 
-// TODO: Importar rutas aquí
+
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const categoryRoutes = require('./routes/categories');
 const adminRoutes = require('./routes/admin');
 
-// TODO: Usar rutas
+
 app.use('/api/auth', authRoutes);
 app.use('/api/productos', productRoutes);
 app.use('/api/categorias', categoryRoutes);

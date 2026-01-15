@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
-import { useState, useEffect } from 'react';
-import { categoriesAPI, productsAPI } from '../services/api';
+import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { useState, useEffect } from "react";
+import { categoriesAPI, productsAPI } from "../services/api";
+import ProductImageCarousel from "../components/ProductImageCarousel";
 
 const Productos = () => {
   const [categorias, setCategorias] = useState([]);
@@ -12,18 +13,18 @@ const Productos = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         // Obtener categorías
         const categoriasResponse = await categoriesAPI.getAll();
         if (categoriasResponse.success) {
           // Mapear categorías a formato necesario para la UI
-          const categoriasFormateadas = categoriasResponse.data.map(cat => ({
+          const categoriasFormateadas = categoriasResponse.data.map((cat) => ({
             id: cat.id,
             path: `/${cat.slug}`,
-            imagen: cat.imagen_background || '/images/default-category.jpg',
+            imagen: cat.imagen_background || "/images/default-category.jpg",
             titulo: cat.nombre.toUpperCase(),
-            descripcion: cat.descripcion || '',
-            slug: cat.slug
+            descripcion: cat.descripcion || "",
+            slug: cat.slug,
           }));
           setCategorias(categoriasFormateadas);
         }
@@ -34,7 +35,7 @@ const Productos = () => {
           setProductosDestacados(productosResponse.data || []);
         }
       } catch (error) {
-        console.error('Error cargando datos:', error);
+        console.error("Error cargando datos:", error);
       } finally {
         setLoading(false);
       }
@@ -47,47 +48,77 @@ const Productos = () => {
   const generateCategoriesSchema = () => ({
     "@context": "https://schema.org",
     "@type": "WebPage",
-    "name": "Catálogo de Productos Decorativos | DecoMotivo",
-    "description": "Explora nuestra colección completa de productos decorativos personalizados: mates, tablas, decoraciones en MDF y más.",
-    "url": "https://www.decomotivo.com.ar/productos",
-    "mainEntity": {
+    name: "Catálogo de Productos Decorativos | DecoMotivo",
+    description:
+      "Explora nuestra colección completa de productos decorativos personalizados: mates, tablas, decoraciones en MDF y más.",
+    url: "https://www.decomotivo.com.ar/productos",
+    mainEntity: {
       "@type": "ItemList",
-      "name": "Categorías de Productos DecoMotivo",
-      "numberOfItems": categorias.length,
-      "itemListElement": categorias.map((categoria, index) => ({
+      name: "Categorías de Productos DecoMotivo",
+      numberOfItems: categorias.length,
+      itemListElement: categorias.map((categoria, index) => ({
         "@type": "ListItem",
-        "position": index + 1,
-        "item": {
+        position: index + 1,
+        item: {
           "@type": "CollectionPage",
-          "name": categoria.titulo,
-          "description": categoria.descripcion,
-          "url": `https://www.decomotivo.com.ar${categoria.path}`
-        }
-      }))
-    }
+          name: categoria.titulo,
+          description: categoria.descripcion,
+          url: `https://www.decomotivo.com.ar${categoria.path}`,
+        },
+      })),
+    },
   });
 
   return (
     <>
       <Helmet>
-        <title>Catálogo de Productos Decorativos Personalizados | DecoMotivo</title>
-        <meta name="description" content="Explora nuestra colección de productos decorativos personalizados: mates, tablas, decoraciones en MDF y más. Diseños únicos para cada espacio con DecoMotivo." />
-        <meta name="keywords" content="productos decorativos, catálogo, mates personalizados, tablas personalizadas, MDF, DecoMotivo, Tucumán, artesanías" />
+        <title>
+          Catálogo de Productos Decorativos Personalizados | DecoMotivo
+        </title>
+        <meta
+          name="description"
+          content="Explora nuestra colección de productos decorativos personalizados: mates, tablas, decoraciones en MDF y más. Diseños únicos para cada espacio con DecoMotivo."
+        />
+        <meta
+          name="keywords"
+          content="productos decorativos, catálogo, mates personalizados, tablas personalizadas, MDF, DecoMotivo, Tucumán, artesanías"
+        />
         <link rel="canonical" href="https://www.decomotivo.com.ar/productos" />
-        
+
         {/* Open Graph */}
-        <meta property="og:title" content="Catálogo de Productos Decorativos Personalizados | DecoMotivo" />
-        <meta property="og:description" content="Explora nuestra colección de productos decorativos personalizados: mates, tablas, decoraciones en MDF y más." />
-        <meta property="og:image" content="https://www.decomotivo.com.ar/images/productos.jpg" />
-        <meta property="og:url" content="https://www.decomotivo.com.ar/productos" />
+        <meta
+          property="og:title"
+          content="Catálogo de Productos Decorativos Personalizados | DecoMotivo"
+        />
+        <meta
+          property="og:description"
+          content="Explora nuestra colección de productos decorativos personalizados: mates, tablas, decoraciones en MDF y más."
+        />
+        <meta
+          property="og:image"
+          content="https://www.decomotivo.com.ar/images/productos.jpg"
+        />
+        <meta
+          property="og:url"
+          content="https://www.decomotivo.com.ar/productos"
+        />
         <meta property="og:type" content="website" />
-        
+
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Catálogo de Productos Decorativos | DecoMotivo" />
-        <meta name="twitter:description" content="Explora nuestra colección de productos decorativos personalizados en Tucumán." />
-        <meta name="twitter:image" content="https://www.decomotivo.com.ar/images/productos.jpg" />
-        
+        <meta
+          name="twitter:title"
+          content="Catálogo de Productos Decorativos | DecoMotivo"
+        />
+        <meta
+          name="twitter:description"
+          content="Explora nuestra colección de productos decorativos personalizados en Tucumán."
+        />
+        <meta
+          name="twitter:image"
+          content="https://www.decomotivo.com.ar/images/productos.jpg"
+        />
+
         {/* Schema.org */}
         {categorias.length > 0 && (
           <script type="application/ld+json">
@@ -112,10 +143,12 @@ const Productos = () => {
               <h1 className="text-4xl lg:text-5xl font-bold text-center mb-12 text-secondary">
                 Nuestros Productos
               </h1>
-              
+
               {categorias.length === 0 ? (
                 <div className="text-center py-16">
-                  <p className="text-xl text-texto">No hay categorías disponibles en este momento.</p>
+                  <p className="text-xl text-texto">
+                    No hay categorías disponibles en este momento.
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
@@ -126,12 +159,12 @@ const Productos = () => {
                       className="relative block h-48 rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:-translate-y-1 hover:shadow-custom-xl group"
                       aria-label={`Ver productos de ${categoria.titulo}`}
                     >
-                      <div 
+                      <div
                         className="absolute inset-0 bg-cover bg-center opacity-30 transition-all duration-300 group-hover:opacity-50 group-hover:scale-105"
-                        style={{ 
-                          backgroundImage: categoria.imagen 
-                            ? `url(${categoria.imagen})` 
-                            : 'linear-gradient(135deg, #8B4513 0%, #D2691E 100%)'
+                        style={{
+                          backgroundImage: categoria.imagen
+                            ? `url(${categoria.imagen})`
+                            : "linear-gradient(135deg, #8B4513 0%, #D2691E 100%)",
                         }}
                       ></div>
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -160,46 +193,54 @@ const Productos = () => {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {productosDestacados.map((producto, index) => (
-                    <article 
+                    <article
                       key={producto.id}
                       className="bg-fondo rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:-translate-y-2 hover:shadow-custom-lg"
                       itemScope
                       itemType="https://schema.org/Product"
                     >
-                      {/* Imagen del producto */}
-                      <div className="h-64 overflow-hidden bg-gris-claro">
-                        {producto.imagenes && producto.imagenes.length > 0 ? (
-                          <img 
-                            src={producto.imagenes[0].url}
-                            alt={producto.imagenes[0].alt_text || producto.titulo}
-                            className="w-full h-full object-cover"
-                            itemProp="image"
-                            loading={index === 0 ? "eager" : "lazy"}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gris-medio">
-                            <i className="fas fa-image text-6xl"></i>
-                          </div>
-                        )}
-                      </div>
+                      {/* Imagen del producto con carrusel */}
+                      <ProductImageCarousel
+                        imagenes={producto.imagenes}
+                        titulo={producto.titulo}
+                        className="h-64"
+                      />
 
                       {/* Info del producto */}
                       <div className="p-6">
-                        <h3 className="text-xl font-semibold mb-2 text-secondary" itemProp="name">
+                        <h3
+                          className="text-xl font-semibold mb-2 text-secondary"
+                          itemProp="name"
+                        >
                           {producto.titulo}
                         </h3>
                         <p className="text-texto" itemProp="description">
                           {producto.descripcion}
                         </p>
-                        
+
                         {/* Metadatos estructurados ocultos */}
-                        <div style={{display: 'none'}}>
-                          <span itemProp="brand" itemScope itemType="https://schema.org/Brand">
+                        <div style={{ display: "none" }}>
+                          <span
+                            itemProp="brand"
+                            itemScope
+                            itemType="https://schema.org/Brand"
+                          >
                             <span itemProp="name">DecoMotivo</span>
                           </span>
-                          <div itemProp="offers" itemScope itemType="https://schema.org/Offer">
-                            <span itemProp="availability" content="https://schema.org/InStock">En stock</span>
-                            <span itemProp="priceCurrency" content="ARS">ARS</span>
+                          <div
+                            itemProp="offers"
+                            itemScope
+                            itemType="https://schema.org/Offer"
+                          >
+                            <span
+                              itemProp="availability"
+                              content="https://schema.org/InStock"
+                            >
+                              En stock
+                            </span>
+                            <span itemProp="priceCurrency" content="ARS">
+                              ARS
+                            </span>
                           </div>
                         </div>
                       </div>
