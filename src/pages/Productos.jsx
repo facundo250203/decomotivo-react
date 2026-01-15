@@ -21,7 +21,7 @@ const Productos = () => {
           const categoriasFormateadas = categoriasResponse.data.map((cat) => ({
             id: cat.id,
             path: `/${cat.slug}`,
-            imagen: cat.imagen_background || "/images/default-category.jpg",
+            imagen: cat.imagen_background || "/images/logo.jpg",
             titulo: cat.nombre.toUpperCase(),
             descripcion: cat.descripcion || "",
             slug: cat.slug,
@@ -96,7 +96,7 @@ const Productos = () => {
         />
         <meta
           property="og:image"
-          content="https://www.decomotivo.com.ar/images/productos.jpg"
+          content="https://www.decomotivo.com.ar/images/logo.jpg"
         />
         <meta
           property="og:url"

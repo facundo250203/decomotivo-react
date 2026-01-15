@@ -106,7 +106,7 @@ const Inicio = () => {
       {/* Hero */}
       <section
         className="relative bg-cover bg-center text-blanco text-center py-32 lg:py-40"
-        style={{ backgroundImage: "url('/images/hero-bg.jpg')" }}
+        style={{ backgroundImage: "url('https://res.cloudinary.com/dkjqmhwtj/image/upload/v1766727625/hero-bg_xaistt.jpg')" }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-secondary/90"></div>
 
@@ -152,7 +152,7 @@ const Inicio = () => {
             <div className="flex-1">
               <div className="rounded-xl overflow-hidden shadow-custom">
                 <img
-                  src="/images/about-us.jpg"
+                  src="https://res.cloudinary.com/dkjqmhwtj/image/upload/v1766727478/about-us_nwcscu.jpg"
                   alt="Equipo DecoMotivo trabajando en productos artesanales personalizados"
                   className="w-full h-auto"
                 />
