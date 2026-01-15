@@ -263,3 +263,128 @@ export default {
   adminProducts: adminProductsAPI,
   formatPrice
 };
+
+export const adminOrdersAPI = {
+  // Obtener todos los pedidos
+  getAll: async (filters = {}, token) => {
+    try {
+      const params = new URLSearchParams();
+      
+      if (filters.estado) params.append('estado', filters.estado);
+      if (filters.desde) params.append('desde', filters.desde);
+      if (filters.hasta) params.append('hasta', filters.hasta);
+      if (filters.limit) params.append('limit', filters.limit);
+      if (filters.offset) params.append('offset', filters.offset);
+
+      const response = await fetch(`${API_URL}/admin/pedidos?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error obteniendo pedidos:', error);
+      throw error;
+    }
+  },
+
+  // Obtener pedido por ID
+  getById: async (id, token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/pedidos/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error obteniendo pedido ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Crear nuevo pedido
+  create: async (orderData, token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/pedidos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(orderData),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error creando pedido:', error);
+      throw error;
+    }
+  },
+
+  // Actualizar pedido
+  update: async (id, orderData, token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/pedidos/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(orderData),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error actualizando pedido ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Actualizar estado del pedido
+  updateStatus: async (id, estado, token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/pedidos/${id}/estado`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ estado }),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error actualizando estado del pedido ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Eliminar pedido
+  delete: async (id, token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/pedidos/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error eliminando pedido ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Obtener estadísticas de pedidos
+  getStats: async (token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/pedidos/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error obteniendo estadísticas:', error);
+      throw error;
+    }
+  }
+};

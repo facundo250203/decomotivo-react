@@ -28,7 +28,11 @@ const AdminLayout = ({ children }) => {
       icon: 'fa-box',
       path: '/admin/productos'
     },
-    // Aquí se agregarán más items después (Pedidos, etc.)
+    {
+      name: 'Pedidos',
+      icon: 'fa-shopping-cart',
+      path: '/admin/pedidos'
+    },
   ];
 
   const isActive = (path, exact = false) => {
@@ -124,7 +128,7 @@ const AdminLayout = ({ children }) => {
             </h2>
           </div>
 
-          {/* Botón Ver Tienda Pública - AQUÍ ESTÁ EL CAMBIO */}
+          {/* Fecha y Botón Ver Tienda Pública */}
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-500 hidden md:block">
               {new Date().toLocaleDateString('es-AR', { 

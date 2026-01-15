@@ -1,3 +1,4 @@
+// backend/server.js
 // ============================================
 // IMPORTS
 // ============================================
@@ -42,6 +43,7 @@ app.get('/', (req, res) => {
     endpoints: {
       categorias: '/api/categorias',
       productos: '/api/productos',
+      pedidos: '/api/admin/pedidos',
       auth: '/api/auth'
     }
   });
@@ -60,17 +62,17 @@ app.get('/health', (req, res) => {
 // RUTAS DE LA API
 // ============================================
 
-
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const categoryRoutes = require('./routes/categories');
 const adminRoutes = require('./routes/admin');
-
+const orderRoutes = require('./routes/orders');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/productos', productRoutes);
 app.use('/api/categorias', categoryRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/pedidos', orderRoutes); // 🆕 Rutas de pedidos
 
 // ============================================
 // MANEJO DE ERRORES 404

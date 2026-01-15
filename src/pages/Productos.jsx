@@ -1,3 +1,4 @@
+// src/pages/Productos.jsx
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
@@ -29,8 +30,8 @@ const Productos = () => {
           setCategorias(categoriasFormateadas);
         }
 
-        // Obtener productos destacados (3 productos)
-        const productosResponse = await productsAPI.getFeatured(3);
+        // Obtener productos destacados
+        const productosResponse = await productsAPI.getFeatured(10);
         if (productosResponse.success) {
           setProductosDestacados(productosResponse.data || []);
         }
@@ -43,6 +44,22 @@ const Productos = () => {
 
     fetchData();
   }, []);
+
+  // Función para formatear precio
+  const formatPrice = (precio) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(precio);
+  };
+
+  // Función para generar URL de WhatsApp
+  const generateWhatsAppUrl = (producto) => {
+    const message = `Hola DecoMotivo, estoy interesado/a en ${producto.titulo}. ¿Podrían darme más información?`;
+    return `https://wa.me/5493815128279?text=${encodeURIComponent(message)}`;
+  };
 
   // Schema.org para la página de categorías
   const generateCategoriesSchema = () => ({
@@ -184,7 +201,7 @@ const Productos = () => {
             </div>
           </section>
 
-          {/* Productos destacados */}
+          {/* Productos destacados - ESTRUCTURA IDÉNTICA A PRODUCTCATEGORY */}
           {productosDestacados.length > 0 && (
             <section className="bg-blanco py-20">
               <div className="container">
@@ -192,59 +209,106 @@ const Productos = () => {
                   Productos Destacados
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {productosDestacados.map((producto, index) => (
-                    <article
+                  {productosDestacados.map((producto) => (
+                    <div
                       key={producto.id}
-                      className="bg-fondo rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:-translate-y-2 hover:shadow-custom-lg"
-                      itemScope
-                      itemType="https://schema.org/Product"
+                      className="producto-card bg-blanco rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:shadow-custom-lg"
                     >
                       {/* Imagen del producto con carrusel */}
                       <ProductImageCarousel
-                        imagenes={producto.imagenes}
+                        imagenes={producto.imagenes || []}
                         titulo={producto.titulo}
-                        className="h-64"
+                        className="h-72"
                       />
 
                       {/* Info del producto */}
                       <div className="p-6">
-                        <h3
-                          className="text-xl font-semibold mb-2 text-secondary"
-                          itemProp="name"
-                        >
+                        <h3 className="text-xl font-semibold mb-2 text-secondary">
                           {producto.titulo}
                         </h3>
-                        <p className="text-texto" itemProp="description">
-                          {producto.descripcion}
-                        </p>
 
-                        {/* Metadatos estructurados ocultos */}
-                        <div style={{ display: "none" }}>
-                          <span
-                            itemProp="brand"
-                            itemScope
-                            itemType="https://schema.org/Brand"
-                          >
-                            <span itemProp="name">DecoMotivo</span>
-                          </span>
-                          <div
-                            itemProp="offers"
-                            itemScope
-                            itemType="https://schema.org/Offer"
-                          >
-                            <span
-                              itemProp="availability"
-                              content="https://schema.org/InStock"
-                            >
-                              En stock
-                            </span>
-                            <span itemProp="priceCurrency" content="ARS">
-                              ARS
-                            </span>
-                          </div>
+                        {/* PRECIO */}
+                        {producto.precio_tipo === "fijo" && producto.precio_valor ? (
+                          <p className="text-2xl font-bold text-primary mb-3">
+                            {formatPrice(producto.precio_valor)}
+                          </p>
+                        ) : producto.precio_tipo === "desde" && producto.precio_valor ? (
+                          <p className="text-2xl font-bold text-primary mb-3">
+                            Desde {formatPrice(producto.precio_valor)}
+                          </p>
+                        ) : (
+                          <p className="text-2xl font-bold text-primary mb-3">
+                            Consultar
+                          </p>
+                        )}
+
+                        {/* Descripción */}
+                        {producto.descripcion && (
+                          <p className="text-texto mb-4">{producto.descripcion}</p>
+                        )}
+
+                        {/* Detalles del producto */}
+                        <div className="bg-gris-claro p-4 rounded-lg mb-4 space-y-2">
+                          {producto.material && (
+                            <p className="text-sm">
+                              <strong className="text-secondary">Material:</strong>{" "}
+                              {producto.material}
+                            </p>
+                          )}
+                          {producto.medidas && (
+                            <p className="text-sm">
+                              <strong className="text-secondary">Medidas:</strong>{" "}
+                              {producto.medidas}
+                            </p>
+                          )}
+                          {producto.personalizable && (
+                            <p className="text-sm">
+                              <strong className="text-secondary">
+                                Personalizable:
+                              </strong>{" "}
+                              {producto.personalizable}
+                            </p>
+                          )}
+                          {producto.capacidad && (
+                            <p className="text-sm">
+                              <strong className="text-secondary">Capacidad:</strong>{" "}
+                              {producto.capacidad}
+                            </p>
+                          )}
+                          {producto.colores && (
+                            <p className="text-sm">
+                              <strong className="text-secondary">
+                                Colores disponibles:
+                              </strong>{" "}
+                              {producto.colores}
+                            </p>
+                          )}
                         </div>
+
+                        {/* BOTONES CONDICIONALES - IGUAL QUE EN PRODUCTCATEGORY */}
+                        {producto.precio_tipo === "fijo" && producto.precio_valor ? (
+                          <a
+                            href={generateWhatsAppUrl(producto)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center gap-2 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent"
+                          >
+                            <i className="fab fa-whatsapp text-xl"></i>
+                            Quiero este producto
+                          </a>
+                        ) : (
+                          <a
+                            href={generateWhatsAppUrl(producto)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center gap-2 bg-secondary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-gris-oscuro"
+                          >
+                            <i className="fab fa-whatsapp text-xl"></i>
+                            Consultar
+                          </a>
+                        )}
                       </div>
-                    </article>
+                    </div>
                   ))}
                 </div>
               </div>
