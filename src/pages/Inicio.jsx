@@ -1,12 +1,9 @@
+// src/pages/Inicio.jsx
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { productsAPI } from "../services/api";
-import ProductImageCarousel from "../components/ProductImageCarousel";
 
 const Inicio = () => {
-  const [productosDestacados, setProductosDestacados] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Intersection Observer para animaciones
@@ -33,23 +30,33 @@ const Inicio = () => {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    const fetchProductosDestacados = async () => {
-      try {
-        setLoading(true);
-        const response = await productsAPI.getFeatured(3);
-        if (response.success) {
-          setProductosDestacados(response.data || []);
-        }
-      } catch (error) {
-        console.error("Error cargando productos destacados:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProductosDestacados();
-  }, []);
+  // Pasos del proceso
+  const pasos = [
+    {
+      numero: "1",
+      icono: "fa-search",
+      titulo: "Elegí tu Producto",
+      descripcion: "Explorá nuestro catálogo de mates, tablas, decoraciones y más. Encontrá el diseño perfecto para vos."
+    },
+    {
+      numero: "2",
+      icono: "fa-palette",
+      titulo: "Personalizalo",
+      descripcion: "Agregá nombres, fechas, frases o diseños especiales. Hacemos cada pieza única para vos."
+    },
+    {
+      numero: "3",
+      icono: "fa-comments",
+      titulo: "Contactanos",
+      descripcion: "Escribinos por WhatsApp para confirmar detalles, precio final y forma de pago."
+    },
+    {
+      numero: "4",
+      icono: "fa-gift",
+      titulo: "Recibilo",
+      descripcion: "Retiralo en nuestro local o coordinamos el envío. ¡Tu producto personalizado listo!"
+    }
+  ];
 
   return (
     <>
@@ -124,7 +131,7 @@ const Inicio = () => {
         </div>
       </section>
 
-      {/* Quienes Somos */}
+      {/* ¿Quiénes Somos? */}
       <section className="py-20 bg-fondo">
         <div className="container">
           <h2 className="text-3xl lg:text-4xl font-bold text-center mb-12 text-secondary">
@@ -162,55 +169,83 @@ const Inicio = () => {
         </div>
       </section>
 
-      {/* Destacados */}
+      {/* Cómo Trabajamos - NUEVA SECCIÓN */}
       <section className="bg-blanco py-20">
         <div className="container">
-          <h2 className="text-3xl lg:text-4xl font-bold text-center mb-10 text-secondary">
-            Nuestros Trabajos Destacados
+          <h2 className="text-3xl lg:text-4xl font-bold text-center mb-4 text-secondary">
+            ¿Cómo Trabajamos?
           </h2>
+          <p className="text-center text-gris-medio mb-12 max-w-2xl mx-auto">
+            En 4 simples pasos podés tener tu producto personalizado
+          </p>
 
-          {loading ? (
-            <div className="text-center py-16">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-              <p className="text-lg text-texto">
-                Cargando productos destacados...
-              </p>
-            </div>
-          ) : productosDestacados.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-xl text-texto">
-                Estamos trabajando en productos increíbles. Volvé pronto para
-                verlos.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {productosDestacados.map((producto, index) => (
-                <article
-                  key={producto.id}
-                  className="fade-in bg-fondo rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:-translate-y-2 hover:shadow-custom-lg"
-                >
-                  {/* Imagen del producto con carrusel */}
-                  <ProductImageCarousel
-                    imagenes={producto.imagenes}
-                    titulo={producto.titulo}
-                    className="h-64"
-                  />
+          {/* Pasos */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {pasos.map((paso, index) => (
+              <div 
+                key={index}
+                className="fade-in relative bg-fondo rounded-xl p-6 text-center shadow-custom hover:shadow-custom-lg transition-all duration-300 hover:-translate-y-2"
+              >
+                {/* Número */}
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-10 h-10 bg-primary text-blanco rounded-full flex items-center justify-center font-bold text-lg shadow-lg">
+                  {paso.numero}
+                </div>
+                
+                {/* Icono */}
+                <div className="w-16 h-16 mx-auto mt-4 mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+                  <i className={`fas ${paso.icono} text-2xl text-primary`}></i>
+                </div>
+                
+                {/* Contenido */}
+                <h3 className="text-xl font-semibold mb-3 text-secondary">
+                  {paso.titulo}
+                </h3>
+                <p className="text-texto text-sm">
+                  {paso.descripcion}
+                </p>
 
-                  {/* Info del producto */}
-                  <div className="p-6">
-                    <h3 className="text-xl font-semibold mb-2 text-secondary">
-                      {producto.titulo}
-                    </h3>
-                    <p className="text-texto">
-                      {producto.descripcion ||
-                        "Producto artesanal personalizado de alta calidad."}
-                    </p>
+                {/* Flecha conectora (excepto en el último) */}
+                {index < pasos.length - 1 && (
+                  <div className="hidden lg:block absolute top-1/2 -right-4 transform -translate-y-1/2 text-primary/30 text-2xl">
+                    <i className="fas fa-chevron-right"></i>
                   </div>
-                </article>
-              ))}
-            </div>
-          )}
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="text-center mt-12">
+            <Link 
+              to="/productos" 
+              className="inline-flex items-center gap-2 bg-primary text-blanco px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 hover:bg-accent hover:scale-105 shadow-lg"
+            >
+              <i className="fas fa-shopping-bag"></i>
+              Explorar Productos
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA WhatsApp */}
+      <section className="bg-gradient-to-r from-green-600 to-green-500 py-16">
+        <div className="container text-center">
+          <h2 className="text-3xl lg:text-4xl font-bold text-blanco mb-4">
+            ¿Tenés alguna idea en mente?
+          </h2>
+          <p className="text-blanco/90 text-lg mb-8 max-w-2xl mx-auto">
+            Contanos qué querés crear y te ayudamos a hacerlo realidad. 
+            Personalizamos cualquier diseño para vos.
+          </p>
+          <a
+            href="https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20tengo%20una%20idea%20para%20un%20producto%20personalizado"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-3 bg-blanco text-green-600 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 hover:bg-gray-100 hover:scale-105 shadow-lg"
+          >
+            <i className="fab fa-whatsapp text-2xl"></i>
+            Escribinos por WhatsApp
+          </a>
         </div>
       </section>
     </>

@@ -1,3 +1,4 @@
+// src/components/layout/Header.jsx
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -13,7 +14,7 @@ const Header = () => {
   };
 
   const menuItems = [
-    { path: '/inicio', label: 'Quienes Somos' },
+    { path: '/inicio', label: '¿Quiénes somos?' },
     { path: '/productos', label: 'Productos' },
     { path: '/contacto', label: 'Contacto' }
   ];
@@ -29,7 +30,7 @@ const Header = () => {
                 src="/images/logo.png" 
                 alt="DecoMotivo Design" 
                 className="h-12 lg:h-14 w-12 lg:w-14 object-contain"
-                />
+              />
             </Link>
           </div>
 
@@ -81,19 +82,19 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Menú móvil */}
-        <nav className={`lg:hidden transition-all duration-300 overflow-hidden ${isMenuOpen ? 'max-h-48 mt-4' : 'max-h-0'}`}>
-          <ul className="flex flex-col gap-4 py-4">
+        {/* Menú Mobile */}
+        <nav className={`lg:hidden transition-all duration-300 overflow-hidden ${isMenuOpen ? 'max-h-64 mt-4' : 'max-h-0'}`}>
+          <ul className="flex flex-col gap-4 py-4 border-t border-gris-claro">
             {menuItems.map((item) => (
               <li key={item.path}>
                 <Link
                   to={item.path}
-                  className={`block font-medium py-2 px-4 rounded transition-all duration-300 ${
-                    isActive(item.path)
-                      ? 'text-primary bg-gris-claro'
-                      : 'text-texto hover:text-primary hover:bg-gris-claro'
-                  }`}
                   onClick={() => setIsMenuOpen(false)}
+                  className={`block py-2 font-medium transition-colors duration-300 ${
+                    isActive(item.path)
+                      ? 'text-primary'
+                      : 'text-texto hover:text-primary'
+                  }`}
                 >
                   {item.label}
                 </Link>

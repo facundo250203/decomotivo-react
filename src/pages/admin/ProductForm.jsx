@@ -6,32 +6,40 @@ import { categoriesAPI, productsAPI, adminProductsAPI } from '../../services/api
 import AdminLayout from '../../components/admin/AdminLayout';
 
 const ProductForm = () => {
-  const { id } = useParams(); // Si viene id, es edición
+  const { id } = useParams();
   const navigate = useNavigate();
   const { token } = useAuth();
   const isEditMode = Boolean(id);
 
-  // Estados del formulario
+  // Estados del formulario - TODOS los campos de la DB
   const [formData, setFormData] = useState({
     titulo: '',
     slug: '',
     descripcion: '',
     categoria_id: '',
-    precio_tipo: 'fijo', // 'fijo', 'desde', 'consultar'
+    precio_tipo: 'fijo',
     precio_valor: '',
+    // Campos que faltaban:
+    material: '',
+    medidas: '',
+    capacidad: '',
+    colores: '',
+    cantidad: 0,
+    tiempo_entrega_tipo: 'dias',
+    tiempo_entrega_dias: 3,
+    // Flags
     personalizable: false,
     destacado: false,
     activo: true,
   });
 
   const [categories, setCategories] = useState([]);
-  const [existingImages, setExistingImages] = useState([]); // Imágenes ya guardadas
-  const [newImages, setNewImages] = useState([]); // Nuevas imágenes a subir
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImages, setNewImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [errors, setErrors] = useState({});
 
-  // Cargar categorías al montar
   useEffect(() => {
     fetchCategories();
     if (isEditMode) {
@@ -65,6 +73,15 @@ const ProductForm = () => {
           categoria_id: product.categoria_id || '',
           precio_tipo: product.precio_tipo || 'fijo',
           precio_valor: product.precio_valor || '',
+          // Campos adicionales
+          material: product.material || '',
+          medidas: product.medidas || '',
+          capacidad: product.capacidad || '',
+          colores: product.colores || '',
+          cantidad: product.cantidad || 0,
+          tiempo_entrega_tipo: product.tiempo_entrega_tipo || 'dias',
+          tiempo_entrega_dias: product.tiempo_entrega_dias || 3,
+          // Flags
           personalizable: product.personalizable || false,
           destacado: product.destacado || false,
           activo: product.activo !== undefined ? product.activo : true,
@@ -80,7 +97,6 @@ const ProductForm = () => {
     }
   };
 
-  // Manejar cambios en inputs
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     
@@ -89,25 +105,23 @@ const ProductForm = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
 
-    // Generar slug automáticamente al escribir el título
+    // Generar slug automáticamente al escribir el título (solo en creación)
     if (name === 'titulo' && !isEditMode) {
       const slug = value
         .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Quitar acentos
-        .replace(/[^a-z0-9\s-]/g, '') // Solo letras, números, espacios y guiones
-        .replace(/\s+/g, '-') // Espacios a guiones
-        .replace(/-+/g, '-') // Múltiples guiones a uno solo
-        .replace(/^-|-$/g, ''); // Quitar guiones del inicio/fin
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
 
       setFormData(prev => ({ ...prev, slug }));
     }
   };
 
-  // Manejar selección de nuevas imágenes
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
     
-    // Validar que sean imágenes
     const validImages = files.filter(file => 
       file.type.startsWith('image/')
     );
@@ -117,23 +131,20 @@ const ProductForm = () => {
       return;
     }
 
-    // Crear previews
     const imagePreviews = validImages.map(file => ({
       file,
       preview: URL.createObjectURL(file),
       alt_text: '',
-      es_principal: newImages.length === 0 && existingImages.length === 0 // Primera imagen es principal
+      es_principal: newImages.length === 0 && existingImages.length === 0
     }));
 
     setNewImages(prev => [...prev, ...imagePreviews]);
   };
 
-  // Eliminar imagen nueva (antes de guardar)
   const removeNewImage = (index) => {
     setNewImages(prev => {
       const updated = prev.filter((_, i) => i !== index);
       
-      // Si eliminamos la principal, hacer principal la primera que quede
       if (prev[index].es_principal && updated.length > 0) {
         updated[0].es_principal = true;
       }
@@ -142,7 +153,6 @@ const ProductForm = () => {
     });
   };
 
-  // Eliminar imagen existente (del servidor)
   const deleteExistingImage = async (imageId) => {
     if (!window.confirm('¿Eliminar esta imagen del servidor?')) {
       return;
@@ -163,22 +173,28 @@ const ProductForm = () => {
     }
   };
 
-  // Marcar como imagen principal
   const setAsPrincipal = (index, isNew = true) => {
     if (isNew) {
       setNewImages(prev => prev.map((img, i) => ({
         ...img,
         es_principal: i === index
       })));
+      setExistingImages(prev => prev.map(img => ({
+        ...img,
+        es_principal: false
+      })));
     } else {
       setExistingImages(prev => prev.map((img, i) => ({
         ...img,
         es_principal: i === index
       })));
+      setNewImages(prev => prev.map(img => ({
+        ...img,
+        es_principal: false
+      })));
     }
   };
 
-  // Validar formulario
   const validateForm = () => {
     const newErrors = {};
 
@@ -200,7 +216,6 @@ const ProductForm = () => {
       }
     }
 
-    // Validar que haya al menos una imagen
     if (!isEditMode && newImages.length === 0) {
       newErrors.images = 'Debes agregar al menos una imagen';
     }
@@ -209,7 +224,6 @@ const ProductForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Guardar producto
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -221,16 +235,18 @@ const ProductForm = () => {
     setLoading(true);
 
     try {
-      // Preparar datos del producto
       const productData = {
         ...formData,
-        precio_valor: formData.precio_tipo === 'consultar' ? null : parseFloat(formData.precio_valor),
+        precio_valor: formData.precio_tipo === 'consultar' 
+          ? null 
+          : parseFloat(formData.precio_valor),
+        cantidad: parseInt(formData.cantidad) || 0,
+        tiempo_entrega_dias: parseInt(formData.tiempo_entrega_dias) || 3,
       };
 
       let productId;
 
       if (isEditMode) {
-        // Actualizar producto existente
         const response = await adminProductsAPI.update(id, productData, token);
         
         if (!response.success) {
@@ -239,7 +255,6 @@ const ProductForm = () => {
         
         productId = id;
       } else {
-        // Crear nuevo producto
         const response = await adminProductsAPI.create(productData, token);
         
         if (!response.success || !response.data) {
@@ -253,13 +268,13 @@ const ProductForm = () => {
       if (newImages.length > 0) {
         for (let i = 0; i < newImages.length; i++) {
           const imageData = newImages[i];
-          const formData = new FormData();
+          const formDataImg = new FormData();
           
-          formData.append('imagen', imageData.file);
-          formData.append('alt_text', imageData.alt_text || '');
-          formData.append('es_principal', imageData.es_principal ? 'true' : 'false');
+          formDataImg.append('imagen', imageData.file);
+          formDataImg.append('alt_text', imageData.alt_text || '');
+          formDataImg.append('es_principal', imageData.es_principal ? 'true' : 'false');
 
-          await adminProductsAPI.uploadImage(productId, formData, token);
+          await adminProductsAPI.uploadImage(productId, formDataImg, token);
         }
       }
 
@@ -303,11 +318,16 @@ const ProductForm = () => {
           </p>
         </div>
 
-        {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Información Básica */}
+          
+          {/* ============================================ */}
+          {/* SECCIÓN 1: Información Básica */}
+          {/* ============================================ */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold mb-4 text-secondary">Información Básica</h3>
+            <h3 className="text-lg font-semibold mb-4 text-secondary flex items-center gap-2">
+              <i className="fas fa-info-circle text-primary"></i>
+              Información Básica
+            </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Título */}
@@ -349,23 +369,8 @@ const ProductForm = () => {
                   <p className="text-red-500 text-sm mt-1">{errors.slug}</p>
                 )}
                 <p className="text-xs text-gris-medio mt-1">
-                  Se genera automáticamente del título (puedes modificarlo)
+                  Se genera automáticamente desde el título
                 </p>
-              </div>
-
-              {/* Descripción */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-texto mb-2">
-                  Descripción
-                </label>
-                <textarea
-                  name="descripcion"
-                  value={formData.descripcion}
-                  onChange={handleInputChange}
-                  rows="4"
-                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Describe el producto detalladamente..."
-                />
               </div>
 
               {/* Categoría */}
@@ -381,7 +386,7 @@ const ProductForm = () => {
                     errors.categoria_id ? 'border-red-500' : 'border-gris-claro'
                   }`}
                 >
-                  <option value="">Selecciona una categoría</option>
+                  <option value="">Seleccionar categoría</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>
                       {cat.nombre}
@@ -393,7 +398,125 @@ const ProductForm = () => {
                 )}
               </div>
 
-              {/* Tipo de Precio */}
+              {/* Descripción */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Descripción
+                </label>
+                <textarea
+                  name="descripcion"
+                  value={formData.descripcion}
+                  onChange={handleInputChange}
+                  rows="4"
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Describe el producto..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ============================================ */}
+          {/* SECCIÓN 2: Detalles del Producto */}
+          {/* ============================================ */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h3 className="text-lg font-semibold mb-4 text-secondary flex items-center gap-2">
+              <i className="fas fa-list-alt text-primary"></i>
+              Detalles del Producto
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Material */}
+              <div>
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Material
+                </label>
+                <input
+                  type="text"
+                  name="material"
+                  value={formData.material}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Ej: Algarrobo, MDF, Pino"
+                />
+              </div>
+
+              {/* Medidas */}
+              <div>
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Medidas
+                </label>
+                <input
+                  type="text"
+                  name="medidas"
+                  value={formData.medidas}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Ej: 20x15x8 cm"
+                />
+              </div>
+
+              {/* Capacidad */}
+              <div>
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Capacidad
+                </label>
+                <input
+                  type="text"
+                  name="capacidad"
+                  value={formData.capacidad}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Ej: 250ml"
+                />
+              </div>
+
+              {/* Colores */}
+              <div className="md:col-span-2 lg:col-span-3">
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Colores disponibles
+                </label>
+                <input
+                  type="text"
+                  name="colores"
+                  value={formData.colores}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Ej: Natural, Negro, Blanco, Roble"
+                />
+                <p className="text-xs text-gris-medio mt-1">
+                  Separa los colores con comas
+                </p>
+              </div>
+
+              {/* Stock/Cantidad */}
+              <div>
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Stock disponible
+                </label>
+                <input
+                  type="number"
+                  name="cantidad"
+                  value={formData.cantidad}
+                  onChange={handleInputChange}
+                  min="0"
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ============================================ */}
+          {/* SECCIÓN 3: Precio */}
+          {/* ============================================ */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h3 className="text-lg font-semibold mb-4 text-secondary flex items-center gap-2">
+              <i className="fas fa-dollar-sign text-primary"></i>
+              Precio
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Tipo de precio */}
               <div>
                 <label className="block text-sm font-medium text-texto mb-2">
                   Tipo de Precio *
@@ -405,112 +528,210 @@ const ProductForm = () => {
                   className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="fijo">Precio Fijo</option>
-                  <option value="desde">Desde (precio base)</option>
-                  <option value="consultar">Consultar</option>
+                  <option value="desde">Desde (precio mínimo)</option>
+                  <option value="consultar">Consultar precio</option>
                 </select>
               </div>
 
-              {/* Precio Valor */}
-              {(formData.precio_tipo === 'fijo' || formData.precio_tipo === 'desde') && (
-                <div className="md:col-span-2">
+              {/* Valor del precio */}
+              {formData.precio_tipo !== 'consultar' && (
+                <div>
                   <label className="block text-sm font-medium text-texto mb-2">
-                    Precio (ARS) *
+                    {formData.precio_tipo === 'desde' ? 'Precio Desde *' : 'Precio *'}
                   </label>
-                  <input
-                    type="number"
-                    name="precio_valor"
-                    value={formData.precio_valor}
-                    onChange={handleInputChange}
-                    min="0"
-                    step="0.01"
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                      errors.precio_valor ? 'border-red-500' : 'border-gris-claro'
-                    }`}
-                    placeholder="25000"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gris-medio">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      name="precio_valor"
+                      value={formData.precio_valor}
+                      onChange={handleInputChange}
+                      min="0"
+                      step="0.01"
+                      className={`w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                        errors.precio_valor ? 'border-red-500' : 'border-gris-claro'
+                      }`}
+                      placeholder="0.00"
+                    />
+                  </div>
                   {errors.precio_valor && (
                     <p className="text-red-500 text-sm mt-1">{errors.precio_valor}</p>
                   )}
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Checkboxes */}
-            <div className="mt-6 space-y-3">
-              <label className="flex items-center">
+          {/* ============================================ */}
+          {/* SECCIÓN 4: Tiempo de Entrega */}
+          {/* ============================================ */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h3 className="text-lg font-semibold mb-4 text-secondary flex items-center gap-2">
+              <i className="fas fa-truck text-primary"></i>
+              Tiempo de Entrega
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Tipo de tiempo */}
+              <div>
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Unidad de tiempo
+                </label>
+                <select
+                  name="tiempo_entrega_tipo"
+                  value={formData.tiempo_entrega_tipo}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="dias">Días</option>
+                  <option value="semanas">Semanas</option>
+                  <option value="horas">Horas</option>
+                </select>
+              </div>
+
+              {/* Cantidad de tiempo */}
+              <div>
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Cantidad
+                </label>
+                <input
+                  type="number"
+                  name="tiempo_entrega_dias"
+                  value={formData.tiempo_entrega_dias}
+                  onChange={handleInputChange}
+                  min="1"
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="3"
+                />
+                <p className="text-xs text-gris-medio mt-1">
+                  Se mostrará como: {formData.tiempo_entrega_dias} {formData.tiempo_entrega_tipo}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ============================================ */}
+          {/* SECCIÓN 5: Opciones */}
+          {/* ============================================ */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h3 className="text-lg font-semibold mb-4 text-secondary flex items-center gap-2">
+              <i className="fas fa-cog text-primary"></i>
+              Opciones
+            </h3>
+            
+            <div className="flex flex-wrap gap-6">
+              {/* Personalizable */}
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   name="personalizable"
                   checked={formData.personalizable}
                   onChange={handleInputChange}
-                  className="mr-2 h-4 w-4 text-primary focus:ring-primary border-gris-claro rounded"
+                  className="w-5 h-5 text-primary border-gris-claro rounded focus:ring-primary"
                 />
-                <span className="text-sm text-texto">Producto personalizable</span>
+                <div>
+                  <span className="font-medium text-texto">Personalizable</span>
+                  <p className="text-xs text-gris-medio">El cliente puede personalizar este producto</p>
+                </div>
               </label>
 
-              <label className="flex items-center">
+              {/* Destacado */}
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   name="destacado"
                   checked={formData.destacado}
                   onChange={handleInputChange}
-                  className="mr-2 h-4 w-4 text-primary focus:ring-primary border-gris-claro rounded"
+                  className="w-5 h-5 text-yellow-500 border-gris-claro rounded focus:ring-yellow-500"
                 />
-                <span className="text-sm text-texto">Producto destacado (aparece en inicio)</span>
+                <div>
+                  <span className="font-medium text-texto">Destacado</span>
+                  <p className="text-xs text-gris-medio">Aparecerá en la sección de destacados</p>
+                </div>
               </label>
 
-              <label className="flex items-center">
+              {/* Activo */}
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   name="activo"
                   checked={formData.activo}
                   onChange={handleInputChange}
-                  className="mr-2 h-4 w-4 text-primary focus:ring-primary border-gris-claro rounded"
+                  className="w-5 h-5 text-green-500 border-gris-claro rounded focus:ring-green-500"
                 />
-                <span className="text-sm text-texto">Producto activo (visible en tienda)</span>
+                <div>
+                  <span className="font-medium text-texto">Activo</span>
+                  <p className="text-xs text-gris-medio">Visible en la tienda</p>
+                </div>
               </label>
             </div>
           </div>
 
-          {/* Imágenes */}
+          {/* ============================================ */}
+          {/* SECCIÓN 6: Imágenes */}
+          {/* ============================================ */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold mb-4 text-secondary">Imágenes del Producto</h3>
-            
-            {/* Imágenes Existentes */}
+            <h3 className="text-lg font-semibold mb-4 text-secondary flex items-center gap-2">
+              <i className="fas fa-images text-primary"></i>
+              Imágenes
+            </h3>
+
+            {/* Input para subir */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-texto mb-2">
+                Agregar imágenes {!isEditMode && '*'}
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageSelect}
+                className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+              {errors.images && (
+                <p className="text-red-500 text-sm mt-1">{errors.images}</p>
+              )}
+            </div>
+
+            {/* Imágenes existentes */}
             {existingImages.length > 0 && (
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-texto mb-3">Imágenes actuales</h4>
+              <div className="mb-4">
+                <p className="text-sm font-medium text-texto mb-2">Imágenes guardadas:</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {existingImages.map((img, index) => (
                     <div key={img.id} className="relative group">
                       <img
                         src={img.url}
-                        alt={img.alt_text}
-                        className="w-full h-32 object-cover rounded-lg border-2 border-gris-claro"
+                        alt={img.alt_text || 'Imagen del producto'}
+                        className={`w-full h-32 object-cover rounded-lg border-2 ${
+                          img.es_principal ? 'border-primary' : 'border-gris-claro'
+                        }`}
                       />
-                      
                       {img.es_principal && (
                         <span className="absolute top-2 left-2 bg-primary text-white text-xs px-2 py-1 rounded">
                           Principal
                         </span>
                       )}
-
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {!img.es_principal && (
                           <button
                             type="button"
                             onClick={() => setAsPrincipal(index, false)}
-                            className="bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary-dark"
+                            className="bg-blue-500 text-white p-1 rounded text-xs"
+                            title="Hacer principal"
                           >
-                            Hacer principal
+                            <i className="fas fa-star"></i>
                           </button>
                         )}
                         <button
                           type="button"
                           onClick={() => deleteExistingImage(img.id)}
-                          className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                          className="bg-red-500 text-white p-1 rounded text-xs"
+                          title="Eliminar"
                         >
-                          Eliminar
+                          <i className="fas fa-trash"></i>
                         </button>
                       </div>
                     </div>
@@ -519,41 +740,43 @@ const ProductForm = () => {
               </div>
             )}
 
-            {/* Nuevas Imágenes */}
+            {/* Nuevas imágenes */}
             {newImages.length > 0 && (
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-texto mb-3">Nuevas imágenes a subir</h4>
+              <div>
+                <p className="text-sm font-medium text-texto mb-2">Nuevas imágenes:</p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {newImages.map((img, index) => (
                     <div key={index} className="relative group">
                       <img
                         src={img.preview}
                         alt="Preview"
-                        className="w-full h-32 object-cover rounded-lg border-2 border-gris-claro"
+                        className={`w-full h-32 object-cover rounded-lg border-2 ${
+                          img.es_principal ? 'border-primary' : 'border-gris-claro'
+                        }`}
                       />
-                      
                       {img.es_principal && (
                         <span className="absolute top-2 left-2 bg-primary text-white text-xs px-2 py-1 rounded">
                           Principal
                         </span>
                       )}
-
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {!img.es_principal && (
                           <button
                             type="button"
                             onClick={() => setAsPrincipal(index, true)}
-                            className="bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary-dark"
+                            className="bg-blue-500 text-white p-1 rounded text-xs"
+                            title="Hacer principal"
                           >
-                            Hacer principal
+                            <i className="fas fa-star"></i>
                           </button>
                         )}
                         <button
                           type="button"
                           onClick={() => removeNewImage(index)}
-                          className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                          className="bg-red-500 text-white p-1 rounded text-xs"
+                          title="Quitar"
                         >
-                          Eliminar
+                          <i className="fas fa-times"></i>
                         </button>
                       </div>
                     </div>
@@ -561,35 +784,16 @@ const ProductForm = () => {
                 </div>
               </div>
             )}
-
-            {/* Botón para agregar imágenes */}
-            <div>
-              <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
-                <i className="fas fa-upload mr-2"></i>
-                Agregar Imágenes
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                />
-              </label>
-              <p className="text-xs text-gris-medio mt-2">
-                Formatos aceptados: JPG, PNG, GIF, WEBP. Recomendado: 800x800px
-              </p>
-              {errors.images && (
-                <p className="text-red-500 text-sm mt-2">{errors.images}</p>
-              )}
-            </div>
           </div>
 
-          {/* Botones de Acción */}
+          {/* ============================================ */}
+          {/* Botones de acción */}
+          {/* ============================================ */}
           <div className="flex gap-4">
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-primary text-white py-3 px-6 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>

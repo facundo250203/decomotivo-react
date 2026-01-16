@@ -14,7 +14,7 @@ const ProductList = () => {
   // Filtros
   const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'destacados', 'activos'
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     fetchCategories();
@@ -57,7 +57,7 @@ const ProductList = () => {
       
       if (response.success) {
         alert('Producto eliminado correctamente');
-        fetchProducts(); // Recargar lista
+        fetchProducts();
       } else {
         alert('Error al eliminar el producto: ' + response.error);
       }
@@ -67,33 +67,50 @@ const ProductList = () => {
     }
   };
 
-  // Filtrar productos con TODOS los filtros combinados
+  // Filtrar productos
   const filteredProducts = products.filter(product => {
-    // Filtro por texto (búsqueda)
     const matchesSearch = searchText === '' || 
       product.titulo.toLowerCase().includes(searchText.toLowerCase());
 
-    // Filtro por categoría
     const matchesCategory = selectedCategory === 'all' || 
       product.categoria_id === parseInt(selectedCategory);
 
-    // Filtro por estado
     let matchesStatus = true;
     if (statusFilter === 'destacados') {
       matchesStatus = product.destacado;
     } else if (statusFilter === 'activos') {
       matchesStatus = product.activo;
+    } else if (statusFilter === 'inactivos') {
+      matchesStatus = !product.activo;
     }
 
-    // Debe cumplir TODOS los filtros
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
-  // Limpiar todos los filtros
   const clearFilters = () => {
     setSearchText('');
     setSelectedCategory('all');
     setStatusFilter('all');
+  };
+
+  // Formatear precio
+  const formatPrecio = (product) => {
+    if (product.precio_tipo === 'consultar') {
+      return <span className="text-gris-medio italic">Consultar</span>;
+    }
+    
+    const precio = product.precio_valor?.toLocaleString('es-AR');
+    
+    if (product.precio_tipo === 'desde') {
+      return (
+        <span>
+          <span className="text-gris-medio text-xs">Desde </span>
+          <span className="font-medium text-secondary">${precio}</span>
+        </span>
+      );
+    }
+    
+    return <span className="font-medium text-secondary">${precio}</span>;
   };
 
   return (
@@ -166,6 +183,7 @@ const ProductList = () => {
             >
               <option value="all">Todos</option>
               <option value="activos">Solo activos</option>
+              <option value="inactivos">Solo inactivos</option>
               <option value="destacados">Solo destacados</option>
             </select>
           </div>
@@ -234,6 +252,9 @@ const ProductList = () => {
                         Precio
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                        Stock
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
                         Estado
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-secondary uppercase tracking-wider">
@@ -267,6 +288,12 @@ const ProductList = () => {
                               <div className="text-sm text-gris-medio">
                                 {product.slug}
                               </div>
+                              {product.material && (
+                                <div className="text-xs text-gris-medio mt-1">
+                                  <i className="fas fa-tree mr-1"></i>
+                                  {product.material}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -279,21 +306,19 @@ const ProductList = () => {
                         </td>
 
                         {/* Precio */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {formatPrecio(product)}
+                        </td>
+
+                        {/* Stock */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {product.precio_tipo === 'consultar' ? (
-                            <span className="text-sm text-gris-medio italic">
-                              Consultar
-                            </span>
-                          ) : (
-                            <div className="text-sm">
-                              {product.precio_tipo === 'desde' && (
-                                <span className="text-gris-medio">Desde </span>
-                              )}
-                              <span className="font-medium text-secondary">
-                                ${product.precio_valor?.toLocaleString('es-AR')}
-                              </span>
-                            </div>
-                          )}
+                          <span className={`text-sm font-medium ${
+                            (product.cantidad || 0) > 0 
+                              ? 'text-green-600' 
+                              : 'text-red-600'
+                          }`}>
+                            {product.cantidad || 0}
+                          </span>
                         </td>
 
                         {/* Estado */}
@@ -315,7 +340,7 @@ const ProductList = () => {
                             {product.personalizable && (
                               <span className="inline-flex text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
                                 <i className="fas fa-edit mr-1"></i>
-                                Personalizable
+                                Personal.
                               </span>
                             )}
                           </div>
@@ -324,16 +349,28 @@ const ProductList = () => {
                         {/* Acciones */}
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end gap-2">
+                            {/* Ver detalle */}
+                            <Link
+                              to={`/admin/productos/${product.id}`}
+                              className="text-blue-600 hover:text-blue-900 p-2"
+                              title="Ver detalle"
+                            >
+                              <i className="fas fa-eye"></i>
+                            </Link>
+                            
+                            {/* Editar */}
                             <Link
                               to={`/admin/productos/editar/${product.id}`}
-                              className="text-primary hover:text-primary-dark"
+                              className="text-primary hover:text-primary-dark p-2"
                               title="Editar"
                             >
                               <i className="fas fa-edit"></i>
                             </Link>
+                            
+                            {/* Eliminar */}
                             <button
                               onClick={() => handleDelete(product.id, product.titulo)}
-                              className="text-red-600 hover:text-red-900"
+                              className="text-red-600 hover:text-red-900 p-2"
                               title="Eliminar"
                             >
                               <i className="fas fa-trash"></i>

@@ -1,5 +1,7 @@
+// src/pages/Contacto.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 
 const Contacto = () => {
   const navigate = useNavigate();
@@ -24,7 +26,6 @@ const Contacto = () => {
     setIsLoading(true);
 
     try {
-      // Enviar datos al PHP usando FormData
       const formDataToSend = new FormData();
       formDataToSend.append('nombre', formData.nombre);
       formDataToSend.append('email', formData.email);
@@ -38,10 +39,8 @@ const Contacto = () => {
       });
 
       if (response.ok) {
-        // Si el envío fue exitoso, redirigir a la página de gracias
         navigate('/gracias');
       } else {
-        // Si hay error, mostrar mensaje
         alert('Hubo un error al enviar el mensaje. Por favor, inténtalo de nuevo.');
       }
     } catch (error) {
@@ -54,12 +53,22 @@ const Contacto = () => {
 
   return (
     <>
+      <Helmet>
+        <title>Contacto | DecoMotivo - Productos Decorativos Personalizados</title>
+        <meta 
+          name="description" 
+          content="Contacta con DecoMotivo para consultas sobre productos decorativos personalizados. Estamos en Tucumán, Argentina. Respondemos rápidamente por WhatsApp." 
+        />
+        <meta name="keywords" content="contacto DecoMotivo, consultas, presupuesto, Tucumán, WhatsApp" />
+        <link rel="canonical" href="https://www.decomotivo.com.ar/contacto" />
+      </Helmet>
+
       {/* Hero de contacto */}
       <section className="bg-gradient-to-r from-primary/85 to-secondary/90 text-blanco text-center py-20">
         <div className="container">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-5">Contáctanos</h2>
+          <h1 className="text-4xl lg:text-5xl font-bold mb-5">Contactanos</h1>
           <p className="text-xl max-w-2xl mx-auto">
-            Estamos listos para transformar tu vida con diseños únicos
+            Estamos listos para transformar tus espacios con diseños únicos
           </p>
         </div>
       </section>
@@ -99,26 +108,56 @@ const Contacto = () => {
                 </div>
               </div>
 
-              {/* Teléfonos */}
+              {/* WhatsApp */}
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                  <i className="fas fa-phone text-blanco text-xl"></i>
+                <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <i className="fab fa-whatsapp text-blanco text-xl"></i>
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-2 text-secondary">Teléfonos</h3>
-                  <p className="text-gris-medio">+54 9 381 512-8279</p>
-                  <p className="text-gris-medio">+54 9 381 631-4426</p>
+                  <h3 className="text-xl font-semibold mb-2 text-secondary">WhatsApp</h3>
+                  <a 
+                    href="https://wa.me/5493815128279" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:text-accent transition-colors font-medium"
+                  >
+                    +54 9 381 512-8279
+                  </a>
+                  <p className="text-gris-medio text-sm mt-1">
+                    Respondemos lo antes posible
+                  </p>
+                </div>
+              </div>
+
+              {/* Instagram */}
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <i className="fab fa-instagram text-blanco text-xl"></i>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold mb-2 text-secondary">Instagram</h3>
+                  <a 
+                    href="https://www.instagram.com/deco_motivo" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:text-accent transition-colors font-medium"
+                  >
+                    @deco_motivo
+                  </a>
+                  <p className="text-gris-medio text-sm mt-1">
+                    Mirá nuestros últimos trabajos
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Mapa */}
-            <div className="h-96 rounded-xl overflow-hidden shadow-custom">
+            <div className="h-96 lg:h-auto rounded-xl overflow-hidden shadow-custom">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3560.445127451022!2d-65.23535672451172!3d-26.822023635267384!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94225c5ea58a33e1%3A0x702e01c01574e685!2sPci%20a%20de%20Mendoza%202372%2C%20T4000%20San%20Miguel%20de%20Tucum%C3%A1n%2C%20Tucum%C3%A1n!5e0!3m2!1ses!2sar!4v1712764839782!5m2!1ses!2sar"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3560.1234567890123!2d-65.2176!3d-26.8367!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjbCsDUwJzEyLjEiUyA2NcKwMTMnMDMuNCJX!5e0!3m2!1ses!2sar!4v1234567890"
                 width="100%"
                 height="100%"
-                style={{ border: 0 }}
+                style={{ border: 0, minHeight: '400px' }}
                 allowFullScreen=""
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
@@ -131,12 +170,15 @@ const Contacto = () => {
 
       {/* Formulario de contacto */}
       <section className="py-16 bg-fondo">
-        <div className="container">
-          <h2 className="text-3xl lg:text-4xl font-bold text-center mb-10 text-secondary">
-            Envíanos tu Consulta
+        <div className="container max-w-3xl">
+          <h2 className="text-3xl font-bold text-center mb-8 text-secondary">
+            Envianos un Mensaje
           </h2>
-          
-          <form onSubmit={handleSubmit} className="max-w-4xl mx-auto bg-blanco p-8 lg:p-12 rounded-xl shadow-custom">
+          <p className="text-center text-gris-medio mb-10">
+            Completá el formulario y te responderemos a la brevedad
+          </p>
+
+          <form onSubmit={handleSubmit} className="bg-blanco rounded-xl shadow-custom p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Nombre */}
               <div>
@@ -151,6 +193,7 @@ const Contacto = () => {
                   onChange={handleChange}
                   required
                   disabled={isLoading}
+                  placeholder="Ej: Juan Pérez"
                   className="w-full px-4 py-3 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:opacity-50"
                 />
               </div>
@@ -168,6 +211,7 @@ const Contacto = () => {
                   onChange={handleChange}
                   required
                   disabled={isLoading}
+                  placeholder="Ej: juan@email.com"
                   className="w-full px-4 py-3 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:opacity-50"
                 />
               </div>
@@ -184,6 +228,7 @@ const Contacto = () => {
                   value={formData.telefono}
                   onChange={handleChange}
                   disabled={isLoading}
+                  placeholder="Ej: 381 123-4567"
                   className="w-full px-4 py-3 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:opacity-50"
                 />
               </div>
@@ -202,30 +247,31 @@ const Contacto = () => {
                   disabled={isLoading}
                   className="w-full px-4 py-3 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors disabled:opacity-50"
                 >
-                  <option value="" disabled>Selecciona una opción</option>
+                  <option value="">Seleccioná una opción</option>
                   <option value="pedido">Pedido personalizado</option>
                   <option value="informacion">Información de productos</option>
                   <option value="presupuesto">Solicitud de presupuesto</option>
                   <option value="otro">Otro</option>
                 </select>
               </div>
-            </div>
 
-            {/* Mensaje */}
-            <div className="mt-6">
-              <label htmlFor="mensaje" className="block text-secondary font-medium mb-2">
-                Mensaje *
-              </label>
-              <textarea
-                id="mensaje"
-                name="mensaje"
-                value={formData.mensaje}
-                onChange={handleChange}
-                required
-                rows="6"
-                disabled={isLoading}
-                className="w-full px-4 py-3 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-vertical disabled:opacity-50"
-              ></textarea>
+              {/* Mensaje */}
+              <div className="md:col-span-2">
+                <label htmlFor="mensaje" className="block text-secondary font-medium mb-2">
+                  Tu mensaje *
+                </label>
+                <textarea
+                  id="mensaje"
+                  name="mensaje"
+                  value={formData.mensaje}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  rows="5"
+                  placeholder="Contanos qué producto te interesa, si querés personalizarlo, cantidad, etc."
+                  className="w-full px-4 py-3 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none disabled:opacity-50"
+                ></textarea>
+              </div>
             </div>
 
             {/* Botón enviar */}
@@ -233,7 +279,7 @@ const Contacto = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="btn text-lg px-12 py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-primary text-blanco px-10 py-4 rounded-lg font-semibold text-lg transition-all duration-300 hover:bg-accent hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 {isLoading ? (
                   <>
@@ -241,11 +287,28 @@ const Contacto = () => {
                     Enviando...
                   </>
                 ) : (
-                  'Enviar mensaje'
+                  <>
+                    <i className="fas fa-paper-plane mr-2"></i>
+                    Enviar Mensaje
+                  </>
                 )}
               </button>
             </div>
           </form>
+
+          {/* CTA WhatsApp */}
+          <div className="mt-10 text-center">
+            <p className="text-gris-medio mb-4">¿Preferís una respuesta más rápida?</p>
+            <a
+              href="https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20quisiera%20hacer%20una%20consulta"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-green-500 text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-green-600 hover:scale-105"
+            >
+              <i className="fab fa-whatsapp text-xl"></i>
+              Escribinos por WhatsApp
+            </a>
+          </div>
         </div>
       </section>
     </>

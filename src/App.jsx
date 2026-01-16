@@ -29,6 +29,7 @@ import Login from './pages/admin/Login';
 import Dashboard from './pages/admin/Dashboard';
 import ProductList from './pages/admin/ProductList';
 import ProductForm from './pages/admin/ProductForm';
+import ProductDetail from './pages/admin/ProductDetail';
 import PedidosList from './pages/admin/PedidosList';
 import PedidoDetalle from './pages/admin/PedidoDetalle';
 import PedidoForm from './pages/admin/PedidoForm';
@@ -88,6 +89,16 @@ function App() {
               }
             />
 
+            {/* Ver Detalle de Producto (protegido) */}
+            <Route
+              path="/admin/productos/:id"
+              element={
+                <ProtectedRoute>
+                  <ProductDetail />
+                </ProtectedRoute>
+              }
+            />
+
             {/* ========== PEDIDOS ========== */}
             
             {/* Lista de Pedidos (protegido) */}
@@ -120,32 +131,191 @@ function App() {
               }
             />
 
+            {/* Editar Pedido (protegido) */}
+            <Route
+              path="/admin/pedidos/editar/:id"
+              element={
+                <ProtectedRoute>
+                  <PedidoForm />
+                </ProtectedRoute>
+              }
+            />
+
             {/* ============================================ */}
             {/* RUTAS PÚBLICAS (con Header y Footer) */}
             {/* ============================================ */}
+            
+            {/* Página de inicio - RUTA RAÍZ */}
             <Route
-              path="/*"
+              path="/"
               element={
                 <>
                   <Header />
-                  <main className="flex-1">
-                    <Routes>
-                      <Route path="/" element={<Inicio />} />
-                      <Route path="/inicio" element={<Inicio />} />
-                      <Route path="/productos" element={<Productos />} />
-                      <Route path="/contacto" element={<Contacto />} />
-                      <Route path="/tablas" element={<Tablas />} />
-                      <Route path="/mates-vasos" element={<MatesVasos />} />
-                      <Route path="/mdf" element={<MDF />} />
-                      <Route path="/otros" element={<Otros />} />
-                      <Route path="/combos" element={<Combos />} />
-                      <Route path="/decoraciones" element={<Decoraciones />} />
-                      <Route path="/faq" element={<FAQ />} />
-                      <Route path="/gracias" element={<Gracias />} />
-                      
-                      {/* 404 - Debe ser la ÚLTIMA ruta */}
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
+                  <main className="min-h-screen">
+                    <Inicio />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            {/* Página de inicio - RUTA /inicio (para el menú) */}
+            <Route
+              path="/inicio"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <Inicio />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            {/* Página de productos (todos) */}
+            <Route
+              path="/productos"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <Productos />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            {/* Páginas de categorías */}
+            <Route
+              path="/tablas"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <Tablas />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            <Route
+              path="/mates-vasos"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <MatesVasos />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            <Route
+              path="/mdf"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <MDF />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            <Route
+              path="/otros"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <Otros />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            <Route
+              path="/combos"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <Combos />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            <Route
+              path="/decoraciones"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <Decoraciones />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            {/* Contacto */}
+            <Route
+              path="/contacto"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <Contacto />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            {/* FAQ */}
+            <Route
+              path="/faq"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <FAQ />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            {/* Página de gracias */}
+            <Route
+              path="/gracias"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <Gracias />
+                  </main>
+                  <Footer />
+                </>
+              }
+            />
+
+            {/* 404 - Not Found */}
+            <Route
+              path="*"
+              element={
+                <>
+                  <Header />
+                  <main className="min-h-screen">
+                    <NotFound />
                   </main>
                   <Footer />
                 </>
