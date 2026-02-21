@@ -105,3 +105,5 @@ app.listen(PORT, () => {
   console.log(`🌍 Entorno: ${process.env.NODE_ENV}`);
   console.log('===========================================');
 });
+
+module.exports = app;
