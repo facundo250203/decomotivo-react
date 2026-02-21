@@ -1,9 +1,11 @@
 // src/pages/admin/PedidoDetalle.jsx
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import AdminLayout from '../../components/admin/AdminLayout';
-import { adminOrdersAPI } from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import AdminLayout from "../../components/admin/AdminLayout";
+import { adminOrdersAPI } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { getErrorInfo } from "../../utils/errorHandler";
 
 const PedidoDetalle = () => {
   const { id } = useParams();
@@ -12,6 +14,7 @@ const PedidoDetalle = () => {
   const [pedido, setPedido] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     fetchPedido();
@@ -21,77 +24,89 @@ const PedidoDetalle = () => {
     try {
       setLoading(true);
       const response = await adminOrdersAPI.getById(id, token);
-      
       if (response.success) {
         setPedido(response.data);
       }
     } catch (error) {
-      console.error('Error cargando pedido:', error);
-      alert('Error al cargar el pedido');
-      navigate('/admin/pedidos');
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
+      if (error?.status === 401)
+        setTimeout(() => navigate("/admin/login"), 2000);
+      navigate("/admin/pedidos");
     } finally {
       setLoading(false);
     }
   };
 
   const handleCambiarEstado = async (nuevoEstado) => {
-    if (window.confirm(`¿Cambiar el estado del pedido a "${nuevoEstado}"?`)) {
-      try {
-        setCambiandoEstado(true);
-        await adminOrdersAPI.updateStatus(id, nuevoEstado, token);
-        alert('Estado actualizado correctamente');
-        fetchPedido(); // Recargar datos
-      } catch (error) {
-        console.error('Error cambiando estado:', error);
-        alert('Error al cambiar el estado');
-      } finally {
-        setCambiandoEstado(false);
-      }
+    if (!window.confirm(`¿Cambiar el estado del pedido a "${nuevoEstado}"?`))
+      return;
+    try {
+      setCambiandoEstado(true);
+      await adminOrdersAPI.updateStatus(id, nuevoEstado, token);
+      toast.success(
+        "Estado actualizado",
+        `El pedido pasó a "${nuevoEstado}" correctamente.`,
+      );
+      fetchPedido();
+    } catch (error) {
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
+    } finally {
+      setCambiandoEstado(false);
     }
   };
 
   const formatFecha = (fecha) => {
-    if (!fecha) return '-';
-    return new Date(fecha).toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    if (!fecha) return "-";
+    return new Date(fecha).toLocaleDateString("es-AR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const formatPrecio = (precio) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
     }).format(precio);
   };
 
   const getEstadoColor = (estado) => {
     const colores = {
-      solicitado: 'text-blue-600 bg-blue-100',
-      senado: 'text-yellow-600 bg-yellow-100',
-      entregado: 'text-green-600 bg-green-100'
+      solicitado: "text-blue-600 bg-blue-100",
+      senado: "text-yellow-600 bg-yellow-100",
+      entregado: "text-green-600 bg-green-100",
     };
-    return colores[estado] || 'text-gray-600 bg-gray-100';
+    return colores[estado] || "text-gray-600 bg-gray-100";
   };
 
   const getEstadoBotones = () => {
     if (!pedido) return [];
-    
+
     const { estado } = pedido;
-    
-    if (estado === 'solicitado') {
+
+    if (estado === "solicitado") {
       return [
-        { label: 'Marcar como Señado', valor: 'senado', icon: 'fa-hand-holding-usd' }
+        {
+          label: "Marcar como Señado",
+          valor: "senado",
+          icon: "fa-hand-holding-usd",
+        },
       ];
-    } else if (estado === 'senado') {
+    } else if (estado === "senado") {
       return [
-        { label: 'Marcar como Entregado', valor: 'entregado', icon: 'fa-check-circle' }
+        {
+          label: "Marcar como Entregado",
+          valor: "entregado",
+          icon: "fa-check-circle",
+        },
       ];
     }
-    
+
     return [];
   };
 
@@ -176,11 +191,11 @@ const PedidoDetalle = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500 mb-1">Teléfono</p>
-                <p className="font-medium">{pedido.cliente_telefono || '-'}</p>
+                <p className="font-medium">{pedido.cliente_telefono || "-"}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-sm text-gray-500 mb-1">Email</p>
-                <p className="font-medium">{pedido.cliente_email || '-'}</p>
+                <p className="font-medium">{pedido.cliente_email || "-"}</p>
               </div>
             </div>
           </div>
@@ -201,7 +216,8 @@ const PedidoDetalle = () => {
                       </h4>
                       {item.descripcion && (
                         <p className="text-sm text-gray-600 mt-1">
-                          <span className="font-medium">Personalización:</span> {item.descripcion}
+                          <span className="font-medium">Personalización:</span>{" "}
+                          {item.descripcion}
                         </p>
                       )}
                     </div>
@@ -213,7 +229,9 @@ const PedidoDetalle = () => {
                   </div>
                   <div className="flex justify-between text-sm text-gray-500">
                     <span>Cantidad: {item.cantidad}</span>
-                    <span>Precio unitario: {formatPrecio(item.precio_unitario)}</span>
+                    <span>
+                      Precio unitario: {formatPrecio(item.precio_unitario)}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -227,7 +245,9 @@ const PedidoDetalle = () => {
                 <i className="fas fa-sticky-note text-primary"></i>
                 Notas
               </h3>
-              <p className="text-gray-700 whitespace-pre-wrap">{pedido.notas}</p>
+              <p className="text-gray-700 whitespace-pre-wrap">
+                {pedido.notas}
+              </p>
             </div>
           )}
         </div>
@@ -237,26 +257,32 @@ const PedidoDetalle = () => {
           {/* Estado */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold mb-4">Estado del Pedido</h3>
-            <div className={`text-center py-6 rounded-lg ${getEstadoColor(pedido.estado)}`}>
-              <p className="text-2xl font-bold uppercase">
-                {pedido.estado}
-              </p>
+            <div
+              className={`text-center py-6 rounded-lg ${getEstadoColor(pedido.estado)}`}
+            >
+              <p className="text-2xl font-bold uppercase">{pedido.estado}</p>
             </div>
             <div className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Solicitado:</span>
-                <span className="font-medium">{formatFecha(pedido.fecha_pedido)}</span>
+                <span className="font-medium">
+                  {formatFecha(pedido.fecha_pedido)}
+                </span>
               </div>
               {pedido.fecha_senado && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Señado:</span>
-                  <span className="font-medium">{formatFecha(pedido.fecha_senado)}</span>
+                  <span className="font-medium">
+                    {formatFecha(pedido.fecha_senado)}
+                  </span>
                 </div>
               )}
               {pedido.fecha_entregado && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Entregado:</span>
-                  <span className="font-medium">{formatFecha(pedido.fecha_entregado)}</span>
+                  <span className="font-medium">
+                    {formatFecha(pedido.fecha_entregado)}
+                  </span>
                 </div>
               )}
             </div>

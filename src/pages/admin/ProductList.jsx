@@ -2,19 +2,26 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { productsAPI, categoriesAPI, adminProductsAPI } from '../../services/api';
+import { categoriesAPI, adminProductsAPI } from '../../services/api';
 import AdminLayout from '../../components/admin/AdminLayout';
+import { useToast } from '../../context/ToastContext';
+import { getErrorInfo } from '../../utils/errorHandler';
 
 const ProductList = () => {
   const { token } = useAuth();
+  const toast = useToast();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Filtros
   const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // Ordenamiento
+  const [sortField, setSortField] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc');
 
   useEffect(() => {
     fetchCategories();
@@ -35,57 +42,42 @@ const ProductList = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await productsAPI.getAll();
-      
+      const response = await adminProductsAPI.getAll(token);
       if (response.success) {
         setProducts(response.data || []);
       }
     } catch (error) {
-      console.error('Error cargando productos:', error);
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (productId, productTitle) => {
-    if (!window.confirm(`¿Estás seguro de eliminar "${productTitle}"?`)) {
-      return;
-    }
-
+    if (!window.confirm(`¿Estás seguro de eliminar "${productTitle}"?`)) return;
     try {
       const response = await adminProductsAPI.delete(productId, token);
-      
       if (response.success) {
-        alert('Producto eliminado correctamente');
+        toast.success('Producto eliminado', `"${productTitle}" fue eliminado correctamente.`);
         fetchProducts();
       } else {
-        alert('Error al eliminar el producto: ' + response.error);
+        toast.error('Error al eliminar', response.error);
       }
     } catch (error) {
-      console.error('Error eliminando producto:', error);
-      alert('Error al eliminar el producto');
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
     }
   };
 
-  // Filtrar productos
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = searchText === '' || 
-      product.titulo.toLowerCase().includes(searchText.toLowerCase());
-
-    const matchesCategory = selectedCategory === 'all' || 
-      product.categoria_id === parseInt(selectedCategory);
-
-    let matchesStatus = true;
-    if (statusFilter === 'destacados') {
-      matchesStatus = product.destacado;
-    } else if (statusFilter === 'activos') {
-      matchesStatus = product.activo;
-    } else if (statusFilter === 'inactivos') {
-      matchesStatus = !product.activo;
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
-
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  };
 
   const clearFilters = () => {
     setSearchText('');
@@ -93,14 +85,11 @@ const ProductList = () => {
     setStatusFilter('all');
   };
 
-  // Formatear precio
   const formatPrecio = (product) => {
     if (product.precio_tipo === 'consultar') {
       return <span className="text-gris-medio italic">Consultar</span>;
     }
-    
     const precio = product.precio_valor?.toLocaleString('es-AR');
-    
     if (product.precio_tipo === 'desde') {
       return (
         <span>
@@ -109,9 +98,42 @@ const ProductList = () => {
         </span>
       );
     }
-    
     return <span className="font-medium text-secondary">${precio}</span>;
   };
+
+  const getSortIcon = (field) => {
+    if (sortField !== field) return '↕';
+    return sortDirection === 'asc' ? '↑' : '↓';
+  };
+
+  // Filtrar
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = searchText === '' ||
+      product.titulo.toLowerCase().includes(searchText.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' ||
+      product.categoria_id === parseInt(selectedCategory);
+    let matchesStatus = true;
+    if (statusFilter === 'destacados') matchesStatus = product.destacado;
+    else if (statusFilter === 'activos') matchesStatus = product.activo;
+    else if (statusFilter === 'inactivos') matchesStatus = !product.activo;
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  // Ordenar
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (!sortField) return 0;
+    if (sortField === 'titulo') {
+      return sortDirection === 'asc'
+        ? a.titulo.localeCompare(b.titulo)
+        : b.titulo.localeCompare(a.titulo);
+    }
+    if (sortField === 'precio_valor') {
+      const aVal = a.precio_valor ?? Infinity;
+      const bVal = b.precio_valor ?? Infinity;
+      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+    }
+    return 0;
+  });
 
   return (
     <AdminLayout>
@@ -135,7 +157,7 @@ const ProductList = () => {
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Búsqueda por texto */}
+          {/* Búsqueda */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-texto mb-2">
               Buscar por nombre
@@ -144,7 +166,7 @@ const ProductList = () => {
               <input
                 type="text"
                 value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
+                onChange={(e) => { setSearchText(e.target.value); }}
                 placeholder="Buscar producto..."
                 className="w-full px-4 py-2 pl-10 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               />
@@ -152,7 +174,7 @@ const ProductList = () => {
             </div>
           </div>
 
-          {/* Filtro por categoría */}
+          {/* Filtro categoría */}
           <div>
             <label className="block text-sm font-medium text-texto mb-2">
               Categoría
@@ -164,14 +186,12 @@ const ProductList = () => {
             >
               <option value="all">Todas las categorías</option>
               {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.nombre}
-                </option>
+                <option key={cat.id} value={cat.id}>{cat.nombre}</option>
               ))}
             </select>
           </div>
 
-          {/* Filtro por estado */}
+          {/* Filtro estado */}
           <div>
             <label className="block text-sm font-medium text-texto mb-2">
               Estado
@@ -189,7 +209,6 @@ const ProductList = () => {
           </div>
         </div>
 
-        {/* Botón limpiar filtros */}
         {(searchText !== '' || selectedCategory !== 'all' || statusFilter !== 'all') && (
           <div className="mt-4">
             <button
@@ -213,8 +232,7 @@ const ProductList = () => {
         </div>
       ) : (
         <>
-          {/* Sin resultados */}
-          {filteredProducts.length === 0 ? (
+          {sortedProducts.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm p-12 text-center">
               <i className="fas fa-box-open text-6xl text-gris-claro mb-4"></i>
               <p className="text-xl text-secondary font-semibold mb-2">
@@ -223,34 +241,46 @@ const ProductList = () => {
               <p className="text-gris-medio mb-6">
                 {searchText || selectedCategory !== 'all' || statusFilter !== 'all'
                   ? 'Intenta cambiar los filtros de búsqueda'
-                  : 'Comienza creando tu primer producto'
-                }
+                  : 'Comienza creando tu primer producto'}
               </p>
               {(searchText || selectedCategory !== 'all' || statusFilter !== 'all') && (
-                <button
-                  onClick={clearFilters}
-                  className="text-primary hover:text-primary-dark font-medium"
-                >
+                <button onClick={clearFilters} className="text-primary hover:text-primary-dark font-medium">
                   Limpiar filtros
                 </button>
               )}
             </div>
           ) : (
-            /* Lista de productos */
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gris-claro">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
-                        Producto
+                      {/* Producto - ordenable */}
+                      <th
+                        className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider cursor-pointer hover:bg-gray-200 select-none"
+                        onClick={() => handleSort('titulo')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Producto
+                          <span className="text-gris-medio">{getSortIcon('titulo')}</span>
+                        </div>
                       </th>
+
                       <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
                         Categoría
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
-                        Precio
+
+                      {/* Precio - ordenable */}
+                      <th
+                        className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider cursor-pointer hover:bg-gray-200 select-none"
+                        onClick={() => handleSort('precio_valor')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Precio
+                          <span className="text-gris-medio">{getSortIcon('precio_valor')}</span>
+                        </div>
                       </th>
+
                       <th className="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
                         Stock
                       </th>
@@ -263,7 +293,7 @@ const ProductList = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gris-claro">
-                    {filteredProducts.map((product) => (
+                    {sortedProducts.map((product) => (
                       <tr key={product.id} className="hover:bg-gray-50">
                         {/* Producto */}
                         <td className="px-6 py-4">
@@ -271,38 +301,26 @@ const ProductList = () => {
                             <div className="h-16 w-16 flex-shrink-0 mr-4">
                               {product.imagenes && product.imagenes.length > 0 ? (
                                 <img
-                                  src={product.imagenes[0].url}
+                                  src={product.imagenes.find(img => img.es_principal)?.url || product.imagenes[0]?.url}
                                   alt={product.titulo}
-                                  className="h-16 w-16 rounded object-cover border border-gris-claro"
+                                  className="h-16 w-16 object-cover rounded-lg"
                                 />
                               ) : (
-                                <div className="h-16 w-16 rounded bg-gris-claro flex items-center justify-center">
-                                  <i className="fas fa-image text-gris-medio text-2xl"></i>
+                                <div className="h-16 w-16 bg-gris-claro rounded-lg flex items-center justify-center">
+                                  <i className="fas fa-image text-gris-medio"></i>
                                 </div>
                               )}
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-secondary">
-                                {product.titulo}
-                              </div>
-                              <div className="text-sm text-gris-medio">
-                                {product.slug}
-                              </div>
-                              {product.material && (
-                                <div className="text-xs text-gris-medio mt-1">
-                                  <i className="fas fa-tree mr-1"></i>
-                                  {product.material}
-                                </div>
-                              )}
+                              <p className="font-medium text-secondary">{product.titulo}</p>
+                              <p className="text-xs text-gris-medio">{product.slug}</p>
                             </div>
                           </div>
                         </td>
 
                         {/* Categoría */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-texto">
-                            {product.categoria?.nombre || 'Sin categoría'}
-                          </span>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-texto">
+                          {product.categoria?.nombre || '-'}
                         </td>
 
                         {/* Precio */}
@@ -311,23 +329,15 @@ const ProductList = () => {
                         </td>
 
                         {/* Stock */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`text-sm font-medium ${
-                            (product.cantidad || 0) > 0 
-                              ? 'text-green-600' 
-                              : 'text-red-600'
-                          }`}>
-                            {product.cantidad || 0}
-                          </span>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-texto">
+                          {product.cantidad ?? '-'}
                         </td>
 
                         {/* Estado */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col gap-1">
-                            <span className={`inline-flex text-xs px-2 py-1 rounded-full ${
-                              product.activo
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
+                          <div className="flex flex-wrap gap-1">
+                            <span className={`inline-flex text-xs px-2 py-1 rounded-full font-medium ${
+                              product.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                             }`}>
                               {product.activo ? 'Activo' : 'Inactivo'}
                             </span>
@@ -337,7 +347,7 @@ const ProductList = () => {
                                 Destacado
                               </span>
                             )}
-                            {product.personalizable && (
+                            {(product.personalizable === true || product.personalizable === 'Sí') && (
                               <span className="inline-flex text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
                                 <i className="fas fa-edit mr-1"></i>
                                 Personal.
@@ -349,7 +359,6 @@ const ProductList = () => {
                         {/* Acciones */}
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end gap-2">
-                            {/* Ver detalle */}
                             <Link
                               to={`/admin/productos/${product.id}`}
                               className="text-blue-600 hover:text-blue-900 p-2"
@@ -357,8 +366,6 @@ const ProductList = () => {
                             >
                               <i className="fas fa-eye"></i>
                             </Link>
-                            
-                            {/* Editar */}
                             <Link
                               to={`/admin/productos/editar/${product.id}`}
                               className="text-primary hover:text-primary-dark p-2"
@@ -366,8 +373,6 @@ const ProductList = () => {
                             >
                               <i className="fas fa-edit"></i>
                             </Link>
-                            
-                            {/* Eliminar */}
                             <button
                               onClick={() => handleDelete(product.id, product.titulo)}
                               className="text-red-600 hover:text-red-900 p-2"

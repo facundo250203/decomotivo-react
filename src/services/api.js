@@ -3,15 +3,15 @@
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-// ============================================
-// HELPER: Manejo de errores HTTP
-// ============================================
 const handleResponse = async (response) => {
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ 
-      message: 'Error en la respuesta del servidor' 
+    const error = await response.json().catch(() => ({
+      message: 'Error en la respuesta del servidor'
     }));
-    throw new Error(error.message || `HTTP Error: ${response.status}`);
+    const err = new Error(error.message || `HTTP Error: ${response.status}`);
+    err.status = response.status;
+    err.detail = JSON.stringify(error, null, 2);
+    throw err;
   }
   return response.json();
 };
@@ -203,6 +203,19 @@ export const adminProductsAPI = {
       return handleResponse(response);
     } catch (error) {
       console.error(`Error eliminando producto ${id}:`, error);
+      throw error;
+    }
+  },
+
+// Obtener todos los productos (incluyendo inactivos)
+  getAll: async (token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/productos`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error obteniendo productos admin:', error);
       throw error;
     }
   },

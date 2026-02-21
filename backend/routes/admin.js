@@ -7,7 +7,8 @@ const {
   updateProduct,
   deleteProduct,
   uploadProductImage,
-  deleteProductImage
+  deleteProductImage,
+  getAllProductsAdmin
 } = require('../controllers/adminProductController');
 
 // ============================================
@@ -19,6 +20,9 @@ router.use(requireAdmin);
 // ============================================
 // PRODUCTOS
 // ============================================
+
+// GET /api/admin/productos - Listar todos los productos
+router.get('/productos', getAllProductsAdmin);
 
 // POST /api/admin/productos - Crear producto
 router.post('/productos', createProduct);

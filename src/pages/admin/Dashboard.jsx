@@ -1,40 +1,46 @@
 // src/pages/admin/Dashboard.jsx
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { productsAPI, categoriesAPI } from '../../services/api';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import {
+  productsAPI,
+  categoriesAPI,
+  adminProductsAPI,
+} from "../../services/api";
+import AdminLayout from "../../components/admin/AdminLayout";
+import { useToast } from "../../context/ToastContext";
+import { getErrorInfo } from "../../utils/errorHandler";
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [stats, setStats] = useState({
     totalProductos: 0,
     productosDestacados: 0,
     totalCategorias: 0,
-    loading: true
+    loading: true,
   });
+  const toast = useToast();
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Obtener productos
-        const productosResponse = await productsAPI.getAll();
+        const productosResponse = await adminProductsAPI.getAll(token);
         const categoriasResponse = await categoriesAPI.getAll();
-
         if (productosResponse.success && categoriasResponse.success) {
           const productos = productosResponse.data || [];
-          const destacados = productos.filter(p => p.destacado);
-
           setStats({
             totalProductos: productos.length,
-            productosDestacados: destacados.length,
+            productosDestacados: productos.filter((p) => p.destacado).length,
             totalCategorias: categoriasResponse.data?.length || 0,
-            loading: false
+            loading: false,
           });
         }
       } catch (error) {
-        console.error('Error cargando estadísticas:', error);
-        setStats(prev => ({ ...prev, loading: false }));
+        const { title, message, detail } = getErrorInfo(error);
+        toast.error(title, message, detail);
+        if (error?.status === 401)
+          setTimeout(() => navigate("/admin/login"), 2000);
+        setStats((prev) => ({ ...prev, loading: false }));
       }
     };
 
@@ -43,26 +49,26 @@ const Dashboard = () => {
 
   const statCards = [
     {
-      title: 'Total Productos',
+      title: "Total Productos",
       value: stats.totalProductos,
-      icon: 'fas fa-box',
-      color: 'bg-blue-500',
-      link: '/admin/productos'
+      icon: "fas fa-box",
+      color: "bg-blue-500",
+      link: "/admin/productos",
     },
     {
-      title: 'Productos Destacados',
+      title: "Productos Destacados",
       value: stats.productosDestacados,
-      icon: 'fas fa-star',
-      color: 'bg-yellow-500',
-      link: '/admin/productos'
+      icon: "fas fa-star",
+      color: "bg-yellow-500",
+      link: "/admin/productos",
     },
     {
-      title: 'Categorías',
+      title: "Categorías",
       value: stats.totalCategorias,
-      icon: 'fas fa-tags',
-      color: 'bg-green-500',
-      link: '/admin/productos'
-    }
+      icon: "fas fa-tags",
+      color: "bg-green-500",
+      link: "/admin/productos",
+    },
   ];
 
   return (
@@ -92,7 +98,9 @@ const Dashboard = () => {
               className="bg-blanco rounded-xl shadow-custom p-6 hover:shadow-custom-lg transition-all duration-300 hover:-translate-y-1"
             >
               <div className="flex items-center justify-between mb-4">
-                <div className={`${card.color} w-12 h-12 rounded-lg flex items-center justify-center text-blanco text-xl`}>
+                <div
+                  className={`${card.color} w-12 h-12 rounded-lg flex items-center justify-center text-blanco text-xl`}
+                >
                   <i className={card.icon}></i>
                 </div>
                 <i className="fas fa-arrow-right text-gris-claro"></i>
@@ -120,7 +128,9 @@ const Dashboard = () => {
             </div>
             <div>
               <h4 className="font-semibold text-secondary">Crear Producto</h4>
-              <p className="text-sm text-gris-medio">Agregar un nuevo producto al catálogo</p>
+              <p className="text-sm text-gris-medio">
+                Agregar un nuevo producto al catálogo
+              </p>
             </div>
           </Link>
 
@@ -133,7 +143,9 @@ const Dashboard = () => {
             </div>
             <div>
               <h4 className="font-semibold text-secondary">Ver Productos</h4>
-              <p className="text-sm text-gris-medio">Gestionar productos existentes</p>
+              <p className="text-sm text-gris-medio">
+                Gestionar productos existentes
+              </p>
             </div>
           </Link>
         </div>

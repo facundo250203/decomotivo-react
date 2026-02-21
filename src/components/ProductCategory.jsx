@@ -23,7 +23,7 @@ const ProductCategory = ({ categorySlug }) => {
 
           // 2. Obtener productos de esta categoría
           const productsResponse = await productsAPI.getByCategory(
-            categoryResponse.data.id
+            categoryResponse.data.id,
           );
 
           if (productsResponse.success) {
@@ -33,7 +33,7 @@ const ProductCategory = ({ categorySlug }) => {
       } catch (err) {
         console.error("Error cargando categoría:", err);
         setError(
-          "No se pudieron cargar los productos. Por favor, intentá de nuevo más tarde."
+          "No se pudieron cargar los productos. Por favor, intentá de nuevo más tarde.",
         );
       } finally {
         setLoading(false);
@@ -207,6 +207,14 @@ const ProductCategory = ({ categorySlug }) => {
                     {producto.descripcion && (
                       <p className="text-texto mb-4">{producto.descripcion}</p>
                     )}
+
+                    {/* Tiempo de entrega */}
+                    <p className="text-sm text-gris-medio mb-4 flex items-center gap-1">
+                      <i className="fas fa-clock text-primary"></i>
+                      {producto.tiempo_entrega_tipo === "inmediata"
+                        ? "Entrega inmediata"
+                        : `Preparación: ${producto.tiempo_entrega_dias} día${producto.tiempo_entrega_dias > 1 ? "s" : ""}`}
+                    </p>
 
                     {/* Detalles del producto */}
                     <div className="bg-gris-claro p-4 rounded-lg mb-4 space-y-2">

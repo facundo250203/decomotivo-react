@@ -1,9 +1,15 @@
 // src/pages/admin/ProductForm.jsx
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { categoriesAPI, productsAPI, adminProductsAPI } from '../../services/api';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import {
+  categoriesAPI,
+  productsAPI,
+  adminProductsAPI,
+} from "../../services/api";
+import AdminLayout from "../../components/admin/AdminLayout";
+import { useToast } from "../../context/ToastContext";
+import { getErrorInfo } from "../../utils/errorHandler";
 
 const ProductForm = () => {
   const { id } = useParams();
@@ -13,19 +19,19 @@ const ProductForm = () => {
 
   // Estados del formulario - TODOS los campos de la DB
   const [formData, setFormData] = useState({
-    titulo: '',
-    slug: '',
-    descripcion: '',
-    categoria_id: '',
-    precio_tipo: 'fijo',
-    precio_valor: '',
+    titulo: "",
+    slug: "",
+    descripcion: "",
+    categoria_id: "",
+    precio_tipo: "fijo",
+    precio_valor: "",
     // Campos que faltaban:
-    material: '',
-    medidas: '',
-    capacidad: '',
-    colores: '',
+    material: "",
+    medidas: "",
+    capacidad: "",
+    colores: "",
     cantidad: 0,
-    tiempo_entrega_tipo: 'dias',
+    tiempo_entrega_tipo: "dias",
     tiempo_entrega_dias: 3,
     // Flags
     personalizable: false,
@@ -47,6 +53,8 @@ const ProductForm = () => {
     }
   }, [id]);
 
+  const toast = useToast();
+
   const fetchCategories = async () => {
     try {
       const response = await categoriesAPI.getAll();
@@ -54,7 +62,7 @@ const ProductForm = () => {
         setCategories(response.data || []);
       }
     } catch (error) {
-      console.error('Error cargando categorías:', error);
+      console.error("Error cargando categorías:", error);
     }
   };
 
@@ -62,36 +70,38 @@ const ProductForm = () => {
     try {
       setLoadingProduct(true);
       const response = await productsAPI.getById(id);
-      
       if (response.success && response.data) {
         const product = response.data;
-        
         setFormData({
-          titulo: product.titulo || '',
-          slug: product.slug || '',
-          descripcion: product.descripcion || '',
-          categoria_id: product.categoria_id || '',
-          precio_tipo: product.precio_tipo || 'fijo',
-          precio_valor: product.precio_valor || '',
-          // Campos adicionales
-          material: product.material || '',
-          medidas: product.medidas || '',
-          capacidad: product.capacidad || '',
-          colores: product.colores || '',
+          titulo: product.titulo || "",
+          slug: product.slug || "",
+          descripcion: product.descripcion || "",
+          categoria_id: product.categoria_id || "",
+          precio_tipo: product.precio_tipo || "fijo",
+          precio_valor: product.precio_valor || "",
+          material: product.material || "",
+          medidas: product.medidas || "",
+          capacidad: product.capacidad || "",
+          colores: product.colores || "",
           cantidad: product.cantidad || 0,
-          tiempo_entrega_tipo: product.tiempo_entrega_tipo || 'dias',
+          tiempo_entrega_tipo: product.tiempo_entrega_tipo || "dias",
           tiempo_entrega_dias: product.tiempo_entrega_dias || 3,
-          // Flags
-          personalizable: product.personalizable || false,
-          destacado: product.destacado || false,
-          activo: product.activo !== undefined ? product.activo : true,
+          personalizable:
+            product.personalizable === true || product.personalizable === "Sí",
+          destacado: Boolean(product.destacado),
+          activo: product.activo !== undefined ? Boolean(product.activo) : true,
         });
-
         setExistingImages(product.imagenes || []);
+      } else {
+        toast.error("No encontrado", "El producto no existe.");
+        navigate("/admin/productos");
       }
     } catch (error) {
-      console.error('Error cargando producto:', error);
-      alert('Error al cargar el producto');
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
+      if (error?.status === 401)
+        setTimeout(() => navigate("/admin/login"), 2000);
+      navigate("/admin/productos");
     } finally {
       setLoadingProduct(false);
     }
@@ -99,99 +109,106 @@ const ProductForm = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
 
     // Generar slug automáticamente al escribir el título (solo en creación)
-    if (name === 'titulo' && !isEditMode) {
+    if (name === "titulo" && !isEditMode) {
       const slug = value
         .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
 
-      setFormData(prev => ({ ...prev, slug }));
+      setFormData((prev) => ({ ...prev, slug }));
     }
   };
 
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
-    
-    const validImages = files.filter(file => 
-      file.type.startsWith('image/')
-    );
+
+    const validImages = files.filter((file) => file.type.startsWith("image/"));
 
     if (validImages.length !== files.length) {
-      alert('Solo se permiten archivos de imagen');
+      alert("Solo se permiten archivos de imagen");
       return;
     }
 
-    const imagePreviews = validImages.map(file => ({
+    const imagePreviews = validImages.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
-      alt_text: '',
-      es_principal: newImages.length === 0 && existingImages.length === 0
+      alt_text: "",
+      es_principal: newImages.length === 0 && existingImages.length === 0,
     }));
 
-    setNewImages(prev => [...prev, ...imagePreviews]);
+    setNewImages((prev) => [...prev, ...imagePreviews]);
   };
 
   const removeNewImage = (index) => {
-    setNewImages(prev => {
+    setNewImages((prev) => {
       const updated = prev.filter((_, i) => i !== index);
-      
+
       if (prev[index].es_principal && updated.length > 0) {
         updated[0].es_principal = true;
       }
-      
+
       return updated;
     });
   };
 
   const deleteExistingImage = async (imageId) => {
-    if (!window.confirm('¿Eliminar esta imagen del servidor?')) {
+    if (!window.confirm("¿Eliminar esta imagen del servidor?")) {
       return;
     }
 
     try {
       const response = await adminProductsAPI.deleteImage(id, imageId, token);
-      
+
       if (response.success) {
-        setExistingImages(prev => prev.filter(img => img.id !== imageId));
-        alert('Imagen eliminada correctamente');
+        setExistingImages((prev) => prev.filter((img) => img.id !== imageId));
+        alert("Imagen eliminada correctamente");
       } else {
-        alert('Error al eliminar la imagen: ' + response.error);
+        alert("Error al eliminar la imagen: " + response.error);
       }
     } catch (error) {
-      console.error('Error eliminando imagen:', error);
-      alert('Error al eliminar la imagen');
+      console.error("Error eliminando imagen:", error);
+      alert("Error al eliminar la imagen");
     }
   };
 
   const setAsPrincipal = (index, isNew = true) => {
     if (isNew) {
-      setNewImages(prev => prev.map((img, i) => ({
-        ...img,
-        es_principal: i === index
-      })));
-      setExistingImages(prev => prev.map(img => ({
-        ...img,
-        es_principal: false
-      })));
+      setNewImages((prev) =>
+        prev.map((img, i) => ({
+          ...img,
+          es_principal: i === index,
+        })),
+      );
+      setExistingImages((prev) =>
+        prev.map((img) => ({
+          ...img,
+          es_principal: false,
+        })),
+      );
     } else {
-      setExistingImages(prev => prev.map((img, i) => ({
-        ...img,
-        es_principal: i === index
-      })));
-      setNewImages(prev => prev.map(img => ({
-        ...img,
-        es_principal: false
-      })));
+      setExistingImages((prev) =>
+        prev.map((img, i) => ({
+          ...img,
+          es_principal: i === index,
+        })),
+      );
+      setNewImages((prev) =>
+        prev.map((img) => ({
+          ...img,
+          es_principal: false,
+        })),
+      );
     }
   };
 
@@ -199,25 +216,25 @@ const ProductForm = () => {
     const newErrors = {};
 
     if (!formData.titulo.trim()) {
-      newErrors.titulo = 'El título es obligatorio';
+      newErrors.titulo = "El título es obligatorio";
     }
 
     if (!formData.slug.trim()) {
-      newErrors.slug = 'El slug es obligatorio';
+      newErrors.slug = "El slug es obligatorio";
     }
 
     if (!formData.categoria_id) {
-      newErrors.categoria_id = 'Debes seleccionar una categoría';
+      newErrors.categoria_id = "Debes seleccionar una categoría";
     }
 
-    if (formData.precio_tipo === 'fijo' || formData.precio_tipo === 'desde') {
+    if (formData.precio_tipo === "fijo" || formData.precio_tipo === "desde") {
       if (!formData.precio_valor || formData.precio_valor <= 0) {
-        newErrors.precio_valor = 'El precio debe ser mayor a 0';
+        newErrors.precio_valor = "El precio debe ser mayor a 0";
       }
     }
 
     if (!isEditMode && newImages.length === 0) {
-      newErrors.images = 'Debes agregar al menos una imagen';
+      newErrors.images = "Debes agregar al menos una imagen";
     }
 
     setErrors(newErrors);
@@ -228,7 +245,10 @@ const ProductForm = () => {
     e.preventDefault();
 
     if (!validateForm()) {
-      alert('Por favor corrige los errores del formulario');
+      toast.warning(
+        "Formulario incompleto",
+        "Por favor corregí los errores antes de continuar.",
+      );
       return;
     }
 
@@ -237,9 +257,10 @@ const ProductForm = () => {
     try {
       const productData = {
         ...formData,
-        precio_valor: formData.precio_tipo === 'consultar' 
-          ? null 
-          : parseFloat(formData.precio_valor),
+        precio_valor:
+          formData.precio_tipo === "consultar"
+            ? null
+            : parseFloat(formData.precio_valor),
         cantidad: parseInt(formData.cantidad) || 0,
         tiempo_entrega_dias: parseInt(formData.tiempo_entrega_dias) || 3,
       };
@@ -248,19 +269,15 @@ const ProductForm = () => {
 
       if (isEditMode) {
         const response = await adminProductsAPI.update(id, productData, token);
-        
         if (!response.success) {
-          throw new Error(response.error || 'Error al actualizar el producto');
+          throw new Error(response.error || "Error al actualizar el producto");
         }
-        
         productId = id;
       } else {
         const response = await adminProductsAPI.create(productData, token);
-        
         if (!response.success || !response.data) {
-          throw new Error(response.error || 'Error al crear el producto');
+          throw new Error(response.error || "Error al crear el producto");
         }
-        
         productId = response.data.id;
       }
 
@@ -269,21 +286,29 @@ const ProductForm = () => {
         for (let i = 0; i < newImages.length; i++) {
           const imageData = newImages[i];
           const formDataImg = new FormData();
-          
-          formDataImg.append('imagen', imageData.file);
-          formDataImg.append('alt_text', imageData.alt_text || '');
-          formDataImg.append('es_principal', imageData.es_principal ? 'true' : 'false');
-
+          formDataImg.append("imagen", imageData.file);
+          formDataImg.append("alt_text", imageData.alt_text || "");
+          formDataImg.append(
+            "es_principal",
+            imageData.es_principal ? "true" : "false",
+          );
           await adminProductsAPI.uploadImage(productId, formDataImg, token);
         }
       }
 
-      alert(isEditMode ? 'Producto actualizado correctamente' : 'Producto creado correctamente');
-      navigate('/admin/productos');
-      
+      toast.success(
+        isEditMode ? "Producto actualizado" : "Producto creado",
+        isEditMode
+          ? "Los cambios fueron guardados correctamente."
+          : "El producto fue creado correctamente.",
+      );
+      navigate("/admin/productos");
     } catch (error) {
-      console.error('Error guardando producto:', error);
-      alert('Error al guardar el producto: ' + error.message);
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
+      if (error?.status === 401) {
+        setTimeout(() => navigate("/admin/login"), 2000);
+      }
     } finally {
       setLoading(false);
     }
@@ -308,18 +333,16 @@ const ProductForm = () => {
         {/* Header */}
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-secondary">
-            {isEditMode ? 'Editar Producto' : 'Nuevo Producto'}
+            {isEditMode ? "Editar Producto" : "Nuevo Producto"}
           </h2>
           <p className="text-gris-medio">
-            {isEditMode 
-              ? 'Modifica los datos del producto'
-              : 'Completa los datos para crear un nuevo producto'
-            }
+            {isEditMode
+              ? "Modifica los datos del producto"
+              : "Completa los datos para crear un nuevo producto"}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          
           {/* ============================================ */}
           {/* SECCIÓN 1: Información Básica */}
           {/* ============================================ */}
@@ -328,7 +351,7 @@ const ProductForm = () => {
               <i className="fas fa-info-circle text-primary"></i>
               Información Básica
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Título */}
               <div className="md:col-span-2">
@@ -341,7 +364,7 @@ const ProductForm = () => {
                   value={formData.titulo}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                    errors.titulo ? 'border-red-500' : 'border-gris-claro'
+                    errors.titulo ? "border-red-500" : "border-gris-claro"
                   }`}
                   placeholder="Ej: Mate de Algarrobo Personalizado"
                 />
@@ -361,7 +384,7 @@ const ProductForm = () => {
                   value={formData.slug}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                    errors.slug ? 'border-red-500' : 'border-gris-claro'
+                    errors.slug ? "border-red-500" : "border-gris-claro"
                   }`}
                   placeholder="mate-algarrobo-personalizado"
                 />
@@ -383,18 +406,20 @@ const ProductForm = () => {
                   value={formData.categoria_id}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                    errors.categoria_id ? 'border-red-500' : 'border-gris-claro'
+                    errors.categoria_id ? "border-red-500" : "border-gris-claro"
                   }`}
                 >
                   <option value="">Seleccionar categoría</option>
-                  {categories.map(cat => (
+                  {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.nombre}
                     </option>
                   ))}
                 </select>
                 {errors.categoria_id && (
-                  <p className="text-red-500 text-sm mt-1">{errors.categoria_id}</p>
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.categoria_id}
+                  </p>
                 )}
               </div>
 
@@ -423,7 +448,7 @@ const ProductForm = () => {
               <i className="fas fa-list-alt text-primary"></i>
               Detalles del Producto
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Material */}
               <div>
@@ -514,7 +539,7 @@ const ProductForm = () => {
               <i className="fas fa-dollar-sign text-primary"></i>
               Precio
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Tipo de precio */}
               <div>
@@ -534,10 +559,12 @@ const ProductForm = () => {
               </div>
 
               {/* Valor del precio */}
-              {formData.precio_tipo !== 'consultar' && (
+              {formData.precio_tipo !== "consultar" && (
                 <div>
                   <label className="block text-sm font-medium text-texto mb-2">
-                    {formData.precio_tipo === 'desde' ? 'Precio Desde *' : 'Precio *'}
+                    {formData.precio_tipo === "desde"
+                      ? "Precio Desde *"
+                      : "Precio *"}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gris-medio">
@@ -551,13 +578,17 @@ const ProductForm = () => {
                       min="0"
                       step="0.01"
                       className={`w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                        errors.precio_valor ? 'border-red-500' : 'border-gris-claro'
+                        errors.precio_valor
+                          ? "border-red-500"
+                          : "border-gris-claro"
                       }`}
                       placeholder="0.00"
                     />
                   </div>
                   {errors.precio_valor && (
-                    <p className="text-red-500 text-sm mt-1">{errors.precio_valor}</p>
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.precio_valor}
+                    </p>
                   )}
                 </div>
               )}
@@ -572,7 +603,7 @@ const ProductForm = () => {
               <i className="fas fa-truck text-primary"></i>
               Tiempo de Entrega
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Tipo de tiempo */}
               <div>
@@ -585,30 +616,32 @@ const ProductForm = () => {
                   onChange={handleInputChange}
                   className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
+                  <option value="inmediata">Entrega Inmediata</option>
                   <option value="dias">Días</option>
-                  <option value="semanas">Semanas</option>
-                  <option value="horas">Horas</option>
                 </select>
               </div>
 
               {/* Cantidad de tiempo */}
-              <div>
-                <label className="block text-sm font-medium text-texto mb-2">
-                  Cantidad
-                </label>
-                <input
-                  type="number"
-                  name="tiempo_entrega_dias"
-                  value={formData.tiempo_entrega_dias}
-                  onChange={handleInputChange}
-                  min="1"
-                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="3"
-                />
-                <p className="text-xs text-gris-medio mt-1">
-                  Se mostrará como: {formData.tiempo_entrega_dias} {formData.tiempo_entrega_tipo}
-                </p>
-              </div>
+              {formData.tiempo_entrega_tipo === "dias" && (
+                <div>
+                  <label className="block text-sm font-medium text-texto mb-2">
+                    Cantidad de días
+                  </label>
+                  <input
+                    type="number"
+                    name="tiempo_entrega_dias"
+                    value={formData.tiempo_entrega_dias}
+                    onChange={handleInputChange}
+                    min="1"
+                    className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    placeholder="3"
+                  />
+                  <p className="text-xs text-gris-medio mt-1">
+                    Se mostrará como: {formData.tiempo_entrega_dias} día
+                    {formData.tiempo_entrega_dias > 1 ? "s" : ""}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -620,7 +653,7 @@ const ProductForm = () => {
               <i className="fas fa-cog text-primary"></i>
               Opciones
             </h3>
-            
+
             <div className="flex flex-wrap gap-6">
               {/* Personalizable */}
               <label className="flex items-center gap-3 cursor-pointer">
@@ -633,7 +666,9 @@ const ProductForm = () => {
                 />
                 <div>
                   <span className="font-medium text-texto">Personalizable</span>
-                  <p className="text-xs text-gris-medio">El cliente puede personalizar este producto</p>
+                  <p className="text-xs text-gris-medio">
+                    El cliente puede personalizar este producto
+                  </p>
                 </div>
               </label>
 
@@ -648,7 +683,9 @@ const ProductForm = () => {
                 />
                 <div>
                   <span className="font-medium text-texto">Destacado</span>
-                  <p className="text-xs text-gris-medio">Aparecerá en la sección de destacados</p>
+                  <p className="text-xs text-gris-medio">
+                    Aparecerá en la sección de destacados
+                  </p>
                 </div>
               </label>
 
@@ -663,7 +700,9 @@ const ProductForm = () => {
                 />
                 <div>
                   <span className="font-medium text-texto">Activo</span>
-                  <p className="text-xs text-gris-medio">Visible en la tienda</p>
+                  <p className="text-xs text-gris-medio">
+                    Visible en la tienda
+                  </p>
                 </div>
               </label>
             </div>
@@ -681,7 +720,7 @@ const ProductForm = () => {
             {/* Input para subir */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-texto mb-2">
-                Agregar imágenes {!isEditMode && '*'}
+                Agregar imágenes {!isEditMode && "*"}
               </label>
               <input
                 type="file"
@@ -698,15 +737,19 @@ const ProductForm = () => {
             {/* Imágenes existentes */}
             {existingImages.length > 0 && (
               <div className="mb-4">
-                <p className="text-sm font-medium text-texto mb-2">Imágenes guardadas:</p>
+                <p className="text-sm font-medium text-texto mb-2">
+                  Imágenes guardadas:
+                </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {existingImages.map((img, index) => (
                     <div key={img.id} className="relative group">
                       <img
                         src={img.url}
-                        alt={img.alt_text || 'Imagen del producto'}
+                        alt={img.alt_text || "Imagen del producto"}
                         className={`w-full h-32 object-cover rounded-lg border-2 ${
-                          img.es_principal ? 'border-primary' : 'border-gris-claro'
+                          img.es_principal
+                            ? "border-primary"
+                            : "border-gris-claro"
                         }`}
                       />
                       {img.es_principal && (
@@ -743,7 +786,9 @@ const ProductForm = () => {
             {/* Nuevas imágenes */}
             {newImages.length > 0 && (
               <div>
-                <p className="text-sm font-medium text-texto mb-2">Nuevas imágenes:</p>
+                <p className="text-sm font-medium text-texto mb-2">
+                  Nuevas imágenes:
+                </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {newImages.map((img, index) => (
                     <div key={index} className="relative group">
@@ -751,7 +796,9 @@ const ProductForm = () => {
                         src={img.preview}
                         alt="Preview"
                         className={`w-full h-32 object-cover rounded-lg border-2 ${
-                          img.es_principal ? 'border-primary' : 'border-gris-claro'
+                          img.es_principal
+                            ? "border-primary"
+                            : "border-gris-claro"
                         }`}
                       />
                       {img.es_principal && (
@@ -798,19 +845,21 @@ const ProductForm = () => {
               {loading ? (
                 <>
                   <i className="fas fa-spinner fa-spin mr-2"></i>
-                  {isEditMode ? 'Actualizando...' : 'Creando...'}
+                  {isEditMode ? "Actualizando..." : "Creando..."}
                 </>
               ) : (
                 <>
-                  <i className={`fas ${isEditMode ? 'fa-save' : 'fa-plus'} mr-2`}></i>
-                  {isEditMode ? 'Actualizar Producto' : 'Crear Producto'}
+                  <i
+                    className={`fas ${isEditMode ? "fa-save" : "fa-plus"} mr-2`}
+                  ></i>
+                  {isEditMode ? "Actualizar Producto" : "Crear Producto"}
                 </>
               )}
             </button>
 
             <button
               type="button"
-              onClick={() => navigate('/admin/productos')}
+              onClick={() => navigate("/admin/productos")}
               className="px-6 py-3 border border-gris-claro text-texto rounded-lg hover:bg-gris-claro transition-colors"
             >
               Cancelar

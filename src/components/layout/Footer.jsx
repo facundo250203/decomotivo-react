@@ -1,5 +1,5 @@
 // src/components/layout/Footer.jsx
-import { Link } from 'react-router-dom';
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -8,10 +8,13 @@ const Footer = () => {
         <div className="flex flex-col lg:flex-row justify-between items-center mb-8 gap-6 lg:gap-4">
           {/* Logo - Ahora es un Link al inicio */}
           <div className="flex items-center lg:justify-start">
-            <Link to="/" className="transition-transform duration-300 hover:scale-105">
-              <img 
-                src="/images/logo.png" 
-                alt="DecoMotivo Design" 
+            <Link
+              to="/"
+              className="transition-transform duration-300 hover:scale-105"
+            >
+              <img
+                src="/images/logo.png"
+                alt="DecoMotivo Design"
                 className="h-14 w-14 filter brightness-0 invert object-contain"
               />
             </Link>
@@ -26,18 +29,18 @@ const Footer = () => {
           <div className="text-center lg:text-right">
             <h4 className="text-lg font-semibold mb-3">Seguinos</h4>
             <div className="flex gap-4 justify-center lg:justify-end">
-              <a 
-                href="#" 
-                target="_blank" 
+              <a
+                href="https://www.facebook.com/profile.php?id=61587014738896"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-2xl transition-all duration-300 hover:text-primary hover:scale-110"
                 aria-label="Facebook"
               >
                 <i className="fab fa-facebook"></i>
               </a>
-              <a 
-                href="https://www.instagram.com/deco_motivo" 
-                target="_blank" 
+              <a
+                href="https://www.instagram.com/deco_motivo"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-2xl transition-all duration-300 hover:text-primary hover:scale-110"
                 aria-label="Instagram"

@@ -112,7 +112,7 @@ const getAllProducts = async (req, res) => {
       params.push(categoria_id);
     }
 
-    query += ` ORDER BY p.destacado DESC, p.id DESC`;
+    query += ` ORDER BY p.precio_valor ASC`;
     query += ` LIMIT ? OFFSET ?`;
     params.push(parseInt(limit), parseInt(offset));
 
@@ -248,7 +248,7 @@ const getProductsByCategory = async (req, res) => {
       LEFT JOIN categorias c ON p.categoria_id = c.id
       LEFT JOIN imagenes_productos i ON p.id = i.producto_id
       WHERE p.categoria_id = ? AND p.activo = true
-      ORDER BY p.destacado DESC, p.id DESC
+      ORDER BY p.precio_valor ASC
     `, [categoriaId]);
 
     // Agrupar productos con sus imágenes
@@ -422,5 +422,6 @@ module.exports = {
   getProductBySlug,
   getProductsByCategory,
   getFeaturedProducts,
-  getProductById
+  getProductById,
+  structureProductWithImages
 };

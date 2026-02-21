@@ -1,9 +1,11 @@
 // src/pages/admin/PedidoForm.jsx
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import AdminLayout from '../../components/admin/AdminLayout';
-import { adminOrdersAPI, productsAPI } from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import AdminLayout from "../../components/admin/AdminLayout";
+import { adminOrdersAPI, productsAPI } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { getErrorInfo } from "../../utils/errorHandler";
 
 const PedidoForm = () => {
   const navigate = useNavigate();
@@ -11,23 +13,24 @@ const PedidoForm = () => {
   const [loading, setLoading] = useState(false);
   const [productos, setProductos] = useState([]);
   const [loadingProductos, setLoadingProductos] = useState(true);
+  const toast = useToast();
 
   const [formData, setFormData] = useState({
-    cliente_nombre: '',
-    cliente_telefono: '',
-    cliente_email: '',
+    cliente_nombre: "",
+    cliente_telefono: "",
+    cliente_email: "",
     descuento: 0,
     monto_sena: 0,
-    notas: ''
+    notas: "",
   });
 
   const [items, setItems] = useState([
     {
-      producto_id: '',
-      descripcion: '',
+      producto_id: "",
+      descripcion: "",
       precio_unitario: 0,
-      cantidad: 1
-    }
+      cantidad: 1,
+    },
   ]);
 
   useEffect(() => {
@@ -42,8 +45,8 @@ const PedidoForm = () => {
         setProductos(response.data || []);
       }
     } catch (error) {
-      console.error('Error cargando productos:', error);
-      alert('Error al cargar productos');
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
     } finally {
       setLoadingProductos(false);
     }
@@ -51,9 +54,9 @@ const PedidoForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -62,8 +65,8 @@ const PedidoForm = () => {
     newItems[index][field] = value;
 
     // Si cambió el producto, actualizar el precio
-    if (field === 'producto_id') {
-      const producto = productos.find(p => p.id === parseInt(value));
+    if (field === "producto_id") {
+      const producto = productos.find((p) => p.id === parseInt(value));
       if (producto && producto.precio_valor) {
         newItems[index].precio_unitario = producto.precio_valor;
       }
@@ -73,12 +76,15 @@ const PedidoForm = () => {
   };
 
   const agregarItem = () => {
-    setItems([...items, {
-      producto_id: '',
-      descripcion: '',
-      precio_unitario: 0,
-      cantidad: 1
-    }]);
+    setItems([
+      ...items,
+      {
+        producto_id: "",
+        descripcion: "",
+        precio_unitario: 0,
+        cantidad: 1,
+      },
+    ]);
   };
 
   const eliminarItem = (index) => {
@@ -89,7 +95,8 @@ const PedidoForm = () => {
 
   const calcularSubtotal = () => {
     return items.reduce((sum, item) => {
-      const subtotalItem = parseFloat(item.precio_unitario || 0) * parseInt(item.cantidad || 0);
+      const subtotalItem =
+        parseFloat(item.precio_unitario || 0) * parseInt(item.cantidad || 0);
       return sum + subtotalItem;
     }, 0);
   };
@@ -102,45 +109,42 @@ const PedidoForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validaciones
     if (!formData.cliente_nombre.trim()) {
-      alert('El nombre del cliente es requerido');
+      toast.warning("Campo requerido", "El nombre del cliente es obligatorio.");
       return;
     }
-
-    const itemsValidos = items.filter(item => item.producto_id && item.cantidad > 0);
+    const itemsValidos = items.filter(
+      (item) => item.producto_id && item.cantidad > 0,
+    );
     if (itemsValidos.length === 0) {
-      alert('Debe agregar al menos un producto al pedido');
+      toast.warning("Sin productos", "Agregá al menos un producto al pedido.");
       return;
     }
-
     try {
       setLoading(true);
-
-      const orderData = {
-        ...formData,
-        items: itemsValidos
-      };
-
+      const orderData = { ...formData, items: itemsValidos };
       const response = await adminOrdersAPI.create(orderData, token);
-
       if (response.success) {
-        alert('Pedido creado exitosamente');
+        toast.success(
+          "Pedido creado",
+          "El pedido fue registrado correctamente.",
+        );
         navigate(`/admin/pedidos/${response.data.id}`);
       }
     } catch (error) {
-      console.error('Error creando pedido:', error);
-      alert('Error al crear el pedido: ' + error.message);
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
+      if (error?.status === 401)
+        setTimeout(() => navigate("/admin/login"), 2000);
     } finally {
       setLoading(false);
     }
   };
 
   const formatPrecio = (precio) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
     }).format(precio);
   };
 
@@ -232,7 +236,9 @@ const PedidoForm = () => {
                 </div>
 
                 {loadingProductos ? (
-                  <p className="text-center text-gray-500">Cargando productos...</p>
+                  <p className="text-center text-gray-500">
+                    Cargando productos...
+                  </p>
                 ) : (
                   <div className="space-y-4">
                     {items.map((item, index) => (
@@ -259,19 +265,26 @@ const PedidoForm = () => {
                             </label>
                             <select
                               value={item.producto_id}
-                              onChange={(e) => handleItemChange(index, 'producto_id', e.target.value)}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  index,
+                                  "producto_id",
+                                  e.target.value,
+                                )
+                              }
                               required
                               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
                             >
                               <option value="">Seleccionar producto</option>
                               {productos.map((prod) => (
                                 <option key={prod.id} value={prod.id}>
-                                  {prod.titulo} - {prod.precio_tipo === 'fijo' && prod.precio_valor 
+                                  {prod.titulo} -{" "}
+                                  {prod.precio_tipo === "fijo" &&
+                                  prod.precio_valor
                                     ? formatPrecio(prod.precio_valor)
-                                    : prod.precio_tipo === 'desde' 
-                                    ? `Desde ${formatPrecio(prod.precio_valor)}`
-                                    : 'Consultar'
-                                  }
+                                    : prod.precio_tipo === "desde"
+                                      ? `Desde ${formatPrecio(prod.precio_valor)}`
+                                      : "Consultar"}
                                 </option>
                               ))}
                             </select>
@@ -283,7 +296,13 @@ const PedidoForm = () => {
                             </label>
                             <textarea
                               value={item.descripcion}
-                              onChange={(e) => handleItemChange(index, 'descripcion', e.target.value)}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  index,
+                                  "descripcion",
+                                  e.target.value,
+                                )
+                              }
                               rows="2"
                               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
                               placeholder="Grabado, colores, medidas especiales..."
@@ -299,7 +318,13 @@ const PedidoForm = () => {
                               step="0.01"
                               min="0"
                               value={item.precio_unitario}
-                              onChange={(e) => handleItemChange(index, 'precio_unitario', e.target.value)}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  index,
+                                  "precio_unitario",
+                                  e.target.value,
+                                )
+                              }
                               required
                               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
                             />
@@ -313,16 +338,27 @@ const PedidoForm = () => {
                               type="number"
                               min="1"
                               value={item.cantidad}
-                              onChange={(e) => handleItemChange(index, 'cantidad', e.target.value)}
+                              onChange={(e) =>
+                                handleItemChange(
+                                  index,
+                                  "cantidad",
+                                  e.target.value,
+                                )
+                              }
                               required
                               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
                             />
                           </div>
 
                           <div className="md:col-span-2 text-right">
-                            <span className="text-sm text-gray-600">Subtotal: </span>
+                            <span className="text-sm text-gray-600">
+                              Subtotal:{" "}
+                            </span>
                             <span className="font-semibold text-lg">
-                              {formatPrecio(parseFloat(item.precio_unitario || 0) * parseInt(item.cantidad || 0))}
+                              {formatPrecio(
+                                parseFloat(item.precio_unitario || 0) *
+                                  parseInt(item.cantidad || 0),
+                              )}
                             </span>
                           </div>
                         </div>
@@ -352,12 +388,16 @@ const PedidoForm = () => {
             {/* Resumen del pedido */}
             <div className="space-y-6">
               <div className="bg-white rounded-lg shadow-md p-6 sticky top-6">
-                <h3 className="text-lg font-semibold mb-4">Resumen del Pedido</h3>
-                
+                <h3 className="text-lg font-semibold mb-4">
+                  Resumen del Pedido
+                </h3>
+
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-gray-600">
                     <span>Subtotal:</span>
-                    <span className="font-medium">{formatPrecio(calcularSubtotal())}</span>
+                    <span className="font-medium">
+                      {formatPrecio(calcularSubtotal())}
+                    </span>
                   </div>
 
                   <div>
@@ -406,7 +446,11 @@ const PedidoForm = () => {
                   {formData.monto_sena > 0 && (
                     <div className="flex justify-between text-orange-600 font-semibold">
                       <span>Saldo Pendiente:</span>
-                      <span>{formatPrecio(calcularTotal() - parseFloat(formData.monto_sena))}</span>
+                      <span>
+                        {formatPrecio(
+                          calcularTotal() - parseFloat(formData.monto_sena),
+                        )}
+                      </span>
                     </div>
                   )}
                 </div>
