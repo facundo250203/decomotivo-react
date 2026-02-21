@@ -1,22 +1,23 @@
 // src/components/layout/Header.jsx
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
 
   const isActive = (path) => {
-    if (path === '/' || path === '/inicio') {
-      return location.pathname === '/' || location.pathname === '/inicio';
+    if (path === "/" || path === "/inicio") {
+      return location.pathname === "/" || location.pathname === "/inicio";
     }
     return location.pathname === path;
   };
 
   const menuItems = [
-    { path: '/inicio', label: '¿Quiénes somos?' },
-    { path: '/productos', label: 'Productos' },
-    { path: '/contacto', label: 'Contacto' }
+    { path: "/inicio", label: "¿Quiénes somos?" },
+    { path: "/productos", label: "Productos" },
+    { path: "/libreria", label: "Librería" },
+    { path: "/contacto", label: "Contacto" },
   ];
 
   return (
@@ -26,9 +27,9 @@ const Header = () => {
           {/* Logo */}
           <div className="flex items-center lg:justify-start">
             <Link to="/">
-              <img 
-                src="/images/logo.png" 
-                alt="DecoMotivo Design" 
+              <img
+                src="/images/logo.png"
+                alt="DecoMotivo Design"
                 className="h-12 lg:h-14 w-12 lg:w-14 object-contain"
               />
             </Link>
@@ -41,10 +42,11 @@ const Header = () => {
                 <li key={item.path}>
                   <Link
                     to={item.path}
-                    className={`font-medium py-2 relative transition-all duration-300 ${
+                    className={`font-medium py-2 relative transition-all duration-300 whitespace-nowrap ${
+                      // ← whitespace-nowrap
                       isActive(item.path)
-                        ? 'text-primary after:w-full'
-                        : 'text-texto hover:text-primary after:w-0 hover:after:w-full'
+                        ? "text-primary after:w-full"
+                        : "text-texto hover:text-primary after:w-0 hover:after:w-full"
                     } after:content-[''] after:absolute after:bottom-0 after:left-0 after:h-0.5 after:bg-primary after:transition-all after:duration-300`}
                   >
                     {item.label}
@@ -60,9 +62,9 @@ const Header = () => {
             <Link
               to="/faq"
               className={`w-10 h-10 rounded-full flex items-center justify-center text-blanco text-xl transition-all duration-300 border-2 border-blanco shadow-md ${
-                isActive('/faq')
-                  ? 'bg-accent'
-                  : 'bg-primary hover:bg-accent hover:scale-110'
+                isActive("/faq")
+                  ? "bg-accent"
+                  : "bg-primary hover:bg-accent hover:scale-110"
               }`}
               title="Preguntas Frecuentes"
             >
@@ -75,15 +77,23 @@ const Header = () => {
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label="Toggle menu"
             >
-              <span className={`block w-6 h-0.5 bg-texto transition-all duration-300 ${isMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`}></span>
-              <span className={`block w-6 h-0.5 bg-texto transition-all duration-300 ${isMenuOpen ? 'opacity-0' : ''}`}></span>
-              <span className={`block w-6 h-0.5 bg-texto transition-all duration-300 ${isMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`}></span>
+              <span
+                className={`block w-6 h-0.5 bg-texto transition-all duration-300 ${isMenuOpen ? "rotate-45 translate-y-1.5" : ""}`}
+              ></span>
+              <span
+                className={`block w-6 h-0.5 bg-texto transition-all duration-300 ${isMenuOpen ? "opacity-0" : ""}`}
+              ></span>
+              <span
+                className={`block w-6 h-0.5 bg-texto transition-all duration-300 ${isMenuOpen ? "-rotate-45 -translate-y-1.5" : ""}`}
+              ></span>
             </button>
           </div>
         </div>
 
         {/* Menú Mobile */}
-        <nav className={`lg:hidden transition-all duration-300 overflow-hidden ${isMenuOpen ? 'max-h-64 mt-4' : 'max-h-0'}`}>
+        <nav
+          className={`lg:hidden transition-all duration-300 overflow-hidden ${isMenuOpen ? "max-h-64 mt-4" : "max-h-0"}`}
+        >
           <ul className="flex flex-col gap-4 py-4 border-t border-gris-claro">
             {menuItems.map((item) => (
               <li key={item.path}>
@@ -92,8 +102,8 @@ const Header = () => {
                   onClick={() => setIsMenuOpen(false)}
                   className={`block py-2 font-medium transition-colors duration-300 ${
                     isActive(item.path)
-                      ? 'text-primary'
-                      : 'text-texto hover:text-primary'
+                      ? "text-primary"
+                      : "text-texto hover:text-primary"
                   }`}
                 >
                   {item.label}

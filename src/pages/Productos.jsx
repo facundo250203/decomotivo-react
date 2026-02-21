@@ -19,14 +19,16 @@ const Productos = () => {
         const categoriasResponse = await categoriesAPI.getAll();
         if (categoriasResponse.success) {
           // Mapear categorías a formato necesario para la UI
-          const categoriasFormateadas = categoriasResponse.data.map((cat) => ({
-            id: cat.id,
-            path: `/${cat.slug}`,
-            imagen: cat.imagen_background || "/images/logo.jpg",
-            titulo: cat.nombre.toUpperCase(),
-            descripcion: cat.descripcion || "",
-            slug: cat.slug,
-          }));
+          const categoriasFormateadas = categoriasResponse.data
+            .filter((cat) => cat.slug !== "libreria") // ← AGREGAR ESTO
+            .map((cat) => ({
+              id: cat.id,
+              path: `/${cat.slug}`,
+              imagen: cat.imagen_background || "/images/logo.jpg",
+              titulo: cat.nombre.toUpperCase(),
+              descripcion: cat.descripcion || "",
+              slug: cat.slug,
+            }));
           setCategorias(categoriasFormateadas);
         }
 
@@ -47,11 +49,11 @@ const Productos = () => {
 
   // Función para formatear precio
   const formatPrice = (precio) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(precio);
   };
 
@@ -228,11 +230,13 @@ const Productos = () => {
                         </h3>
 
                         {/* PRECIO */}
-                        {producto.precio_tipo === "fijo" && producto.precio_valor ? (
+                        {producto.precio_tipo === "fijo" &&
+                        producto.precio_valor ? (
                           <p className="text-2xl font-bold text-primary mb-3">
                             {formatPrice(producto.precio_valor)}
                           </p>
-                        ) : producto.precio_tipo === "desde" && producto.precio_valor ? (
+                        ) : producto.precio_tipo === "desde" &&
+                          producto.precio_valor ? (
                           <p className="text-2xl font-bold text-primary mb-3">
                             Desde {formatPrice(producto.precio_valor)}
                           </p>
@@ -244,20 +248,26 @@ const Productos = () => {
 
                         {/* Descripción */}
                         {producto.descripcion && (
-                          <p className="text-texto mb-4">{producto.descripcion}</p>
+                          <p className="text-texto mb-4">
+                            {producto.descripcion}
+                          </p>
                         )}
 
                         {/* Detalles del producto */}
                         <div className="bg-gris-claro p-4 rounded-lg mb-4 space-y-2">
                           {producto.material && (
                             <p className="text-sm">
-                              <strong className="text-secondary">Material:</strong>{" "}
+                              <strong className="text-secondary">
+                                Material:
+                              </strong>{" "}
                               {producto.material}
                             </p>
                           )}
                           {producto.medidas && (
                             <p className="text-sm">
-                              <strong className="text-secondary">Medidas:</strong>{" "}
+                              <strong className="text-secondary">
+                                Medidas:
+                              </strong>{" "}
                               {producto.medidas}
                             </p>
                           )}
@@ -271,7 +281,9 @@ const Productos = () => {
                           )}
                           {producto.capacidad && (
                             <p className="text-sm">
-                              <strong className="text-secondary">Capacidad:</strong>{" "}
+                              <strong className="text-secondary">
+                                Capacidad:
+                              </strong>{" "}
                               {producto.capacidad}
                             </p>
                           )}
@@ -286,7 +298,8 @@ const Productos = () => {
                         </div>
 
                         {/* BOTONES CONDICIONALES - IGUAL QUE EN PRODUCTCATEGORY */}
-                        {producto.precio_tipo === "fijo" && producto.precio_valor ? (
+                        {producto.precio_tipo === "fijo" &&
+                        producto.precio_valor ? (
                           <a
                             href={generateWhatsAppUrl(producto)}
                             target="_blank"

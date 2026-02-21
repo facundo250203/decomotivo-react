@@ -33,7 +33,7 @@ import ProductDetail from "./pages/admin/ProductDetail";
 import PedidosList from "./pages/admin/PedidosList";
 import PedidoDetalle from "./pages/admin/PedidoDetalle";
 import PedidoForm from "./pages/admin/PedidoForm";
-
+import ProductCategory from './components/ProductCategory';
 import { ToastProvider } from "./context/ToastContext";
 
 function App() {
@@ -268,7 +268,19 @@ function App() {
                   </>
                 }
               />
-
+              {/* Libreria */}
+              <Route
+                path="/libreria"
+                element={
+                  <>
+                    <Header />
+                    <main className="min-h-screen">
+                      <ProductCategory categorySlug="libreria" />
+                    </main>
+                    <Footer />
+                  </>
+                }
+              />
               {/* Contacto */}
               <Route
                 path="/contacto"
