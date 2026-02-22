@@ -108,3 +108,5 @@ if (require.main === module) {
     console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   });
 }
+
+module.exports = app;
