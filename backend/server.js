@@ -1,63 +1,66 @@
-// backend/config/database.js
-const mysql = require("mysql2");
+// backend/server.js
+const express = require("express");
+const cors = require("cors");
 const dotenv = require("dotenv");
 
 dotenv.config();
 
+// Rutas
+const authRoutes = require("./routes/auth");
+const productRoutes = require("./routes/products");
+const categoryRoutes = require("./routes/categories");
+const adminRoutes = require("./routes/admin");
+const orderRoutes = require("./routes/orders");
+
+const app = express();
+
 // ============================================
-// POOL DE CONEXIONES MYSQL
+// MIDDLEWARE
 // ============================================
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 3306,
-  charset: "utf8mb4",
-  timezone: "+00:00",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
+app.use(cors({
+  origin: process.env.FRONTEND_URL || "*",
+  credentials: true,
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ============================================
+// RUTAS
+// ============================================
+app.use("/api/auth", authRoutes);
+app.use("/api/productos", productRoutes);
+app.use("/api/categorias", categoryRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/pedidos", orderRoutes);
+
+// Health check
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "DecoMotivo API funcionando" });
+});
+
+// 404
+app.use((req, res) => {
+  res.status(404).json({ error: "Ruta no encontrada" });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: "Error interno del servidor" });
 });
 
 // ============================================
-// FORZAR UTF8MB4 EN CADA CONEXIÓN NUEVA
+// INICIAR SERVIDOR (solo en local)
 // ============================================
-pool.on("connection", (connection) => {
-  connection.query("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'");
-});
+const PORT = process.env.PORT || 3000;
 
-// Promisify para usar async/await
-const promisePool = pool.promise();
-
-// ============================================
-// FUNCIÓN PARA PROBAR LA CONEXIÓN
-// ============================================
-const testConnection = async () => {
-  try {
-    const connection = await promisePool.getConnection();
-    console.log("✅ Conexión exitosa a MySQL");
-    console.log(`📦 Base de datos: ${process.env.DB_NAME}`);
-    const [rows] = await connection.query("SHOW VARIABLES LIKE 'character_set_connection'");
-    console.log(`🔤 Encoding: ${rows[0]?.Value}`);
-    connection.release();
-    return true;
-  } catch (error) {
-    console.error("❌ Error conectando a MySQL:", error.message);
-    return false;
-  }
-};
-
-// Probar conexión al iniciar
-testConnection();
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  });
+}
 
 // ============================================
-// EXPORTAR
+// EXPORTAR para Vercel ← ESTO ES LO CLAVE
 // ============================================
-module.exports = {
-  pool,
-  promisePool,
-  testConnection,
-};
+module.exports = app;
