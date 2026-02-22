@@ -1,28 +1,59 @@
-# .htaccess para DecoMotivo - React SPA en Hostinger
-
-# Habilitar RewriteEngine
+# ----------------------------------------------------------------------
+# 1. SEGURIDAD Y REDIRECCIONES
+# ----------------------------------------------------------------------
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Redirigir de HTTP a HTTPS (SSL)
+  # Forzar HTTPS
   RewriteCond %{HTTPS} off
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  # Redirigir de www a no-www (RECOMENDADO)
-  RewriteCond %{HTTP_HOST} ^www\.decomotivo\.com\.ar [NC]
-  RewriteRule ^(.*)$ https://decomotivo.com.ar/$1 [L,R=301]
+  # --- SOLUCIÓN DEL ERROR CORS ---
+  # Forzamos que SIEMPRE tenga 'www' porque tu backend así lo espera.
+  # (Tu archivo anterior hacía lo contrario, por eso fallaba)
+  RewriteCond %{HTTP_HOST} !^www\. [NC]
+  RewriteRule ^(.*)$ https://www.%{HTTP_HOST}/$1 [R=301,L]
 
-  # No reescribir archivos o directorios que existen
+  # Ignorar archivos reales (imágenes, CSS, JS)
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  
-  # Permitir acceso directo al PHP del formulario
+
+  # Excepción para tu archivo PHP (Lo dejé por si acaso todavía lo usas)
   RewriteCond %{REQUEST_URI} !^/procesar-contacto\.php$
-  
-  # Redirigir todo al index.html (SPA de React)
+
+  # Redirigir todo lo demás al index.html (Para que funcione React)
   RewriteRule . /index.html [L]
 </IfModule>
 
-# Configuración de caché para mejorar rendimiento
-<IfModule mod_exp
+# ----------------------------------------------------------------------
+# 2. RENDIMIENTO (BROWSER CACHING)
+# Esto es lo que se te cortaba en el mensaje anterior.
+# Ayuda a que la página cargue más rápido para visitantes recurrentes.
+# ----------------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault "access plus 1 month"
+
+  # HTML: Nunca cachear (para que vean tus cambios al instante si subes algo nuevo)
+  ExpiresByType text/html "access plus 0 seconds"
+
+  # Datos (JSON/XML): Nunca cachear
+  ExpiresByType application/json "access plus 0 seconds"
+  ExpiresByType application/xml "access plus 0 seconds"
+
+  # Favicon (cachear por mucho tiempo)
+  ExpiresByType image/x-icon "access plus 1 year"
+
+  # Imágenes (cachear por 1 año)
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+
+  # CSS y JS (cachear por 1 mes)
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+</IfModule>

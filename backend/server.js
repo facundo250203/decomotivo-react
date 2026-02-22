@@ -23,7 +23,12 @@ const PORT = process.env.PORT || 3000;
 
 // CORS - Permitir requests desde el frontend
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [
+    'http://localhost:5173',
+    'https://www.decomotivo.com.ar',
+    'https://decomotivo.com.ar',
+    process.env.FRONTEND_URL
+  ].filter(Boolean),
   credentials: true
 }));
 
@@ -98,12 +103,8 @@ app.use((err, req, res, next) => {
 // ============================================
 // INICIAR SERVIDOR
 // ============================================
-app.listen(PORT, () => {
-  console.log('===========================================');
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-  console.log(`📍 http://localhost:${PORT}`);
-  console.log(`🌍 Entorno: ${process.env.NODE_ENV}`);
-  console.log('===========================================');
-});
-
-module.exports = app;
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  });
+}
