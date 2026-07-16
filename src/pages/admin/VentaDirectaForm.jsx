@@ -31,9 +31,20 @@ const VentaDirectaForm = () => {
   // opt-out), ver ventasController.createVentaDirecta.
   const [saldoCliente, setSaldoCliente] = useState(0);
 
-  const [items, setItems] = useState([
-    { producto_id: "", producto_variante_id: "", precio_unitario: 0, cantidad: 1 },
-  ]);
+  // es_manual + descripcion_manual: ítem no catalogado (ver migración 024).
+  // Comparten precio_unitario/cantidad con los ítems de catálogo -- solo al
+  // armar el payload en handleSubmit se traducen a producto_id o a
+  // descripcion_manual/precio_manual según corresponda.
+  const itemVacio = () => ({
+    producto_id: "",
+    producto_variante_id: "",
+    precio_unitario: 0,
+    cantidad: 1,
+    es_manual: false,
+    descripcion_manual: "",
+  });
+
+  const [items, setItems] = useState([itemVacio()]);
 
   useEffect(() => {
     fetchProductos();
@@ -121,10 +132,24 @@ const VentaDirectaForm = () => {
   };
 
   const agregarItem = () => {
-    setItems([
-      ...items,
-      { producto_id: "", producto_variante_id: "", precio_unitario: 0, cantidad: 1 },
-    ]);
+    setItems([...items, itemVacio()]);
+  };
+
+  const agregarItemManual = () => {
+    setItems([...items, { ...itemVacio(), es_manual: true }]);
+  };
+
+  // Cambia una línea entre catálogo <-> manual sin perder cantidad/precio ya
+  // cargados. El vendedor a veces tipea un ítem manual porque no encontró el
+  // producto en el buscador, pero existe en el catálogo -- necesita poder
+  // arreglar esa línea en el momento, no solo borrarla y empezar de nuevo.
+  const toggleItemManual = (index) => {
+    const newItems = [...items];
+    const item = newItems[index];
+    newItems[index] = item.es_manual
+      ? { ...item, es_manual: false, descripcion_manual: "", producto_id: "", producto_variante_id: "" }
+      : { ...item, es_manual: true, producto_id: "", producto_variante_id: "" };
+    setItems(newItems);
   };
 
   const eliminarItem = (index) => {
@@ -165,8 +190,10 @@ const VentaDirectaForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const itemsValidos = items.filter(
-      (item) => item.producto_id && item.cantidad > 0,
+    const itemsValidos = items.filter((item) =>
+      item.es_manual
+        ? item.descripcion_manual.trim() && item.precio_unitario > 0 && item.cantidad > 0
+        : item.producto_id && item.cantidad > 0,
     );
     if (itemsValidos.length === 0) {
       toast.warning("Sin productos", "Agregá al menos un producto a la venta.");
@@ -174,6 +201,7 @@ const VentaDirectaForm = () => {
     }
 
     const itemSinMedida = itemsValidos.find((item) => {
+      if (item.es_manual) return false;
       const producto = productos.find(
         (p) => p.id === parseInt(item.producto_id),
       );
@@ -216,14 +244,22 @@ const VentaDirectaForm = () => {
         monto_transferencia: parseFloat(montoTransferencia) || 0,
         monto_cuenta_corriente: parseFloat(montoCuentaCorriente) || 0,
         notas: notas || undefined,
-        items: itemsValidos.map((item) => ({
-          producto_id: parseInt(item.producto_id),
-          producto_variante_id: item.producto_variante_id
-            ? parseInt(item.producto_variante_id)
-            : null,
-          precio_unitario: parseFloat(item.precio_unitario),
-          cantidad: parseInt(item.cantidad),
-        })),
+        items: itemsValidos.map((item) =>
+          item.es_manual
+            ? {
+                descripcion_manual: item.descripcion_manual.trim(),
+                precio_manual: parseFloat(item.precio_unitario),
+                cantidad: parseInt(item.cantidad),
+              }
+            : {
+                producto_id: parseInt(item.producto_id),
+                producto_variante_id: item.producto_variante_id
+                  ? parseInt(item.producto_variante_id)
+                  : null,
+                precio_unitario: parseFloat(item.precio_unitario),
+                cantidad: parseInt(item.cantidad),
+              },
+        ),
       };
 
       const response = await ventasAPI.createDirecta(ventaData, token);
@@ -320,14 +356,24 @@ const VentaDirectaForm = () => {
                     <i className="fas fa-box text-primary"></i>
                     Productos
                   </h3>
-                  <button
-                    type="button"
-                    onClick={agregarItem}
-                    className="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors"
-                  >
-                    <i className="fas fa-plus mr-1"></i>
-                    Agregar Producto
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={agregarItem}
+                      className="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition-colors"
+                    >
+                      <i className="fas fa-plus mr-1"></i>
+                      Agregar Producto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={agregarItemManual}
+                      className="text-sm bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors"
+                    >
+                      <i className="fas fa-pen mr-1"></i>
+                      Agregar Ítem Manual
+                    </button>
+                  </div>
                 </div>
 
                 {loadingProductos ? (
@@ -346,21 +392,60 @@ const VentaDirectaForm = () => {
                       return (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex justify-between items-start mb-3">
-                          <span className="font-medium text-gray-700">
+                          <span className="font-medium text-gray-700 flex items-center gap-2">
                             Producto {index + 1}
+                            {item.es_manual && (
+                              <span className="text-xs font-semibold bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
+                                <i className="fas fa-pen mr-1"></i>
+                                Manual
+                              </span>
+                            )}
                           </span>
-                          {items.length > 1 && (
+                          <div className="flex items-center gap-3">
                             <button
                               type="button"
-                              onClick={() => eliminarItem(index)}
-                              className="text-red-600 hover:text-red-800 text-sm"
+                              onClick={() => toggleItemManual(index)}
+                              className="text-primary hover:underline text-xs"
                             >
-                              <i className="fas fa-trash"></i>
+                              {item.es_manual
+                                ? "Buscar producto de catálogo"
+                                : "Convertir en ítem manual"}
                             </button>
-                          )}
+                            {items.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => eliminarItem(index)}
+                                className="text-red-600 hover:text-red-800 text-sm"
+                              >
+                                <i className="fas fa-trash"></i>
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {item.es_manual ? (
+                            <div className="md:col-span-2">
+                              <label className="block text-sm text-gray-600 mb-1">
+                                Descripción *
+                              </label>
+                              <input
+                                type="text"
+                                value={item.descripcion_manual}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "descripcion_manual",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="Ej: reparación de mate, producto sin catalogar..."
+                                required
+                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                              />
+                            </div>
+                          ) : (
+                          <>
                           <div className="md:col-span-2">
                             <label className="block text-sm text-gray-600 mb-1">
                               Producto *
@@ -446,10 +531,12 @@ const VentaDirectaForm = () => {
                               </div>
                             </div>
                           )}
+                          </>
+                          )}
 
                           <div>
                             <label className="block text-sm text-gray-600 mb-1">
-                              Precio Unitario *
+                              {item.es_manual ? "Precio *" : "Precio Unitario *"}
                             </label>
                             <input
                               type="number"

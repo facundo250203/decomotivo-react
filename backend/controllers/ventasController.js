@@ -39,13 +39,17 @@ const getVentas = async (req, res) => {
       LEFT JOIN pedidos p ON p.id = v.pedido_id
       LEFT JOIN clientes cl ON cl.id = v.cliente_id
       LEFT JOIN (
+        -- LEFT JOIN a productos (no INNER): un ítem manual (producto_id
+        -- NULL, ver migración 024) no tiene fila en productos, así que su
+        -- nombre sale de descripcion_manual -- si fuera INNER JOIN esas
+        -- líneas desaparecerían del resumen de "productos" de la venta.
         SELECT venta_id, GROUP_CONCAT(linea ORDER BY titulo SEPARATOR ', ') as productos
         FROM (
-          SELECT vi.venta_id, pr.titulo,
-            CONCAT(SUM(vi.cantidad), 'x ', pr.titulo) as linea
+          SELECT vi.venta_id, COALESCE(pr.titulo, vi.descripcion_manual) as titulo,
+            CONCAT(SUM(vi.cantidad), 'x ', COALESCE(pr.titulo, vi.descripcion_manual)) as linea
           FROM venta_items vi
-          JOIN productos pr ON pr.id = vi.producto_id
-          GROUP BY vi.venta_id, pr.id, pr.titulo
+          LEFT JOIN productos pr ON pr.id = vi.producto_id
+          GROUP BY vi.venta_id, pr.id, COALESCE(pr.titulo, vi.descripcion_manual)
         ) agrupado
         GROUP BY venta_id
       ) vi_agg ON vi_agg.venta_id = v.id
@@ -127,7 +131,7 @@ const getVentaById = async (req, res) => {
     }
 
     const [items] = await promisePool.query(
-      `SELECT vi.*, pr.titulo as producto_titulo
+      `SELECT vi.*, COALESCE(pr.titulo, vi.descripcion_manual) as producto_titulo
        FROM venta_items vi
        LEFT JOIN productos pr ON pr.id = vi.producto_id
        WHERE vi.venta_id = ?`,
@@ -150,7 +154,13 @@ const getVentaById = async (req, res) => {
         items: items.map((item) => ({
           ...item,
           precio_unitario: parseFloat(item.precio_unitario),
+          precio_manual:
+            item.precio_manual !== null ? parseFloat(item.precio_manual) : null,
           subtotal: parseFloat(item.subtotal),
+          // producto_id NULL = línea manual (ver migración 024). Se calcula
+          // acá en vez de guardarse en la base para que el frontend no
+          // dependa de inferirlo de otra forma.
+          es_manual: item.producto_id === null,
         })),
       },
     });
@@ -224,9 +234,65 @@ const createVentaDirecta = async (req, res) => {
       });
     }
 
-    const sumaItems = items.reduce(
-      (acc, item) =>
-        acc + parseFloat(item.precio_unitario) * parseInt(item.cantidad),
+    // Normaliza cada ítem a uno de dos tipos ANTES de tocar la base: de
+    // catálogo (producto_id) o manual/no catalogado (descripcion_manual +
+    // precio_manual, ver migración 024) -- un ítem manual no referencia
+    // ningún producto real, así que no participa de stock ni de
+    // controla_stock más abajo. precioUnitario sale de precio_manual para
+    // que el subtotal (cantidad * precio_unitario, columna generada) se
+    // calcule igual para los dos tipos sin bifurcar esa cuenta.
+    const itemsNormalizados = [];
+    for (const item of items) {
+      const cantidad = parseInt(item.cantidad);
+      if (!Number.isInteger(cantidad) || cantidad <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Cada ítem debe tener una cantidad entera mayor a 0",
+        });
+      }
+
+      if (item.producto_id) {
+        const precioUnitario = parseFloat(item.precio_unitario);
+        if (!Number.isFinite(precioUnitario) || precioUnitario <= 0) {
+          return res.status(400).json({
+            success: false,
+            error: "Cada producto de catálogo debe tener un precio unitario válido",
+          });
+        }
+        itemsNormalizados.push({
+          esManual: false,
+          productoId: item.producto_id,
+          productoVarianteId: item.producto_variante_id || null,
+          cantidad,
+          precioUnitario,
+        });
+      } else {
+        const descripcionManual = (item.descripcion_manual || "").trim();
+        const precioManual = parseMontoValidado(item.precio_manual);
+        if (!descripcionManual) {
+          return res.status(400).json({
+            success: false,
+            error: "Cada ítem manual debe tener una descripción",
+          });
+        }
+        if (precioManual === null || precioManual <= 0) {
+          return res.status(400).json({
+            success: false,
+            error: "Cada ítem manual debe tener un precio válido mayor a 0",
+          });
+        }
+        itemsNormalizados.push({
+          esManual: true,
+          descripcionManual,
+          precioManual,
+          cantidad,
+          precioUnitario: precioManual,
+        });
+      }
+    }
+
+    const sumaItems = itemsNormalizados.reduce(
+      (acc, item) => acc + item.precioUnitario * item.cantidad,
       0,
     );
 
@@ -321,40 +387,58 @@ const createVentaDirecta = async (req, res) => {
 
     // Productos que no controlan stock (ej. copias/impresiones) no
     // participan del descuento ni del movimiento -- solo se registra la
-    // venta como ingreso.
-    const productoIds = items.map((item) => item.producto_id);
+    // venta como ingreso. Los ítems manuales quedan afuera de este mapa: no
+    // tienen producto_id, así que directamente no entran al loop de stock.
+    const productoIds = itemsNormalizados
+      .filter((item) => !item.esManual)
+      .map((item) => item.productoId);
     const controlaStockMap = await getControlaStockMap(connection, productoIds);
     // Un ítem puede ser un combo (precio_tipo='combo'): no tiene stock
     // propio, así que en vez del descuento simple se descuenta su receta
     // completa (ver aplicarMovimientoStockCombo).
     const precioTipoMap = await getPrecioTipoMap(connection, productoIds);
 
-    for (const item of items) {
-      const cantidad = parseInt(item.cantidad);
+    for (const item of itemsNormalizados) {
+      if (item.esManual) {
+        // Ítem no catalogado (ver migración 024): ni stock ni
+        // controla_stock aplican porque no hay producto real detrás.
+        await connection.query(
+          `INSERT INTO venta_items (venta_id, producto_id, producto_variante_id, descripcion_manual, precio_manual, cantidad, precio_unitario)
+           VALUES (?, NULL, NULL, ?, ?, ?, ?)`,
+          [
+            ventaId,
+            item.descripcionManual,
+            item.precioManual,
+            item.cantidad,
+            item.precioUnitario,
+          ],
+        );
+        continue;
+      }
 
       await connection.query(
         `INSERT INTO venta_items (venta_id, producto_id, producto_variante_id, cantidad, precio_unitario)
          VALUES (?, ?, ?, ?, ?)`,
         [
           ventaId,
-          item.producto_id,
-          item.producto_variante_id || null,
-          cantidad,
-          item.precio_unitario,
+          item.productoId,
+          item.productoVarianteId,
+          item.cantidad,
+          item.precioUnitario,
         ],
       );
 
-      if (precioTipoMap.get(parseInt(item.producto_id)) === "combo") {
+      if (precioTipoMap.get(parseInt(item.productoId)) === "combo") {
         const { ok } = await aplicarMovimientoStockCombo(connection, {
-          comboProductoId: item.producto_id,
-          cantidadCombos: cantidad,
+          comboProductoId: item.productoId,
+          cantidadCombos: item.cantidad,
           tipo: "salida_venta",
           refColumn: "venta_id",
           refId: ventaId,
         });
 
         if (!ok) {
-          sinStock.push(item.producto_id);
+          sinStock.push(item.productoId);
         }
         continue;
       }
@@ -362,16 +446,16 @@ const createVentaDirecta = async (req, res) => {
       // Un ítem con variante siempre controla stock -- las variantes
       // existen justamente para llevar stock propio por medida.
       if (
-        !item.producto_variante_id &&
-        controlaStockMap.get(parseInt(item.producto_id)) === false
+        !item.productoVarianteId &&
+        controlaStockMap.get(parseInt(item.productoId)) === false
       ) {
         continue;
       }
 
       const { ok } = await aplicarMovimientoStock(connection, {
-        productoId: item.producto_id,
-        varianteId: item.producto_variante_id,
-        cantidad,
+        productoId: item.productoId,
+        varianteId: item.productoVarianteId,
+        cantidad: item.cantidad,
         direccion: "salida",
         tipo: "salida_venta",
         refColumn: "venta_id",
@@ -379,7 +463,7 @@ const createVentaDirecta = async (req, res) => {
       });
 
       if (!ok) {
-        sinStock.push(item.producto_variante_id || item.producto_id);
+        sinStock.push(item.productoVarianteId || item.productoId);
       }
     }
 
