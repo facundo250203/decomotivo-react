@@ -1,13 +1,15 @@
 // src/pages/Productos.jsx
-import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
 import { categoriesAPI, productsAPI } from "../services/api";
-import ProductImageCarousel from "../components/ProductImageCarousel";
+import CategoryNav from "../components/CategoryNav";
+import ProductGridCard from "../components/ProductGridCard";
+import ProductGrid from "../components/ProductGrid";
 
 const Productos = () => {
   const [categorias, setCategorias] = useState([]);
   const [productosDestacados, setProductosDestacados] = useState([]);
+  const [todosLosProductos, setTodosLosProductos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,9 +21,7 @@ const Productos = () => {
         const categoriasResponse = await categoriesAPI.getAll();
         if (categoriasResponse.success) {
           // Mapear categorías a formato necesario para la UI
-          const categoriasFormateadas = categoriasResponse.data
-            .filter((cat) => cat.slug !== "libreria") // ← AGREGAR ESTO
-            .map((cat) => ({
+          const categoriasFormateadas = categoriasResponse.data.map((cat) => ({
               id: cat.id,
               path: `/${cat.slug}`,
               imagen: cat.imagen_background || "/images/logo.jpg",
@@ -32,10 +32,16 @@ const Productos = () => {
           setCategorias(categoriasFormateadas);
         }
 
-        // Obtener productos destacados
-        const productosResponse = await productsAPI.getFeatured(10);
-        if (productosResponse.success) {
-          setProductosDestacados(productosResponse.data || []);
+        // Obtener productos destacados y el catálogo completo en paralelo
+        const [destacadosResponse, todosResponse] = await Promise.all([
+          productsAPI.getFeatured(10),
+          productsAPI.getAll({ limit: 200 }),
+        ]);
+        if (destacadosResponse.success) {
+          setProductosDestacados(destacadosResponse.data || []);
+        }
+        if (todosResponse.success) {
+          setTodosLosProductos(todosResponse.data || []);
         }
       } catch (error) {
         console.error("Error cargando datos:", error);
@@ -46,22 +52,6 @@ const Productos = () => {
 
     fetchData();
   }, []);
-
-  // Función para formatear precio
-  const formatPrice = (precio) => {
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(precio);
-  };
-
-  // Función para generar URL de WhatsApp
-  const generateWhatsAppUrl = (producto) => {
-    const message = `Hola DecoMotivo, estoy interesado/a en ${producto.titulo}. ¿Podrían darme más información?`;
-    return `https://wa.me/5493815128279?text=${encodeURIComponent(message)}`;
-  };
 
   // Schema.org para la página de categorías
   const generateCategoriesSchema = () => ({
@@ -156,177 +146,49 @@ const Productos = () => {
         </div>
       ) : (
         <>
-          {/* Sección de categorías */}
+          {/* Categorías (barra lateral) + productos destacados */}
           <section className="py-20 bg-fondo">
-            <div className="container">
-              <h1 className="text-4xl lg:text-5xl font-bold text-center mb-12 text-secondary">
-                Nuestros Productos
-              </h1>
+            <div className="container lg:flex lg:gap-8 lg:items-start">
+              <CategoryNav activeSlug={null} />
 
-              {categorias.length === 0 ? (
-                <div className="text-center py-16">
-                  <p className="text-xl text-texto">
-                    No hay categorías disponibles en este momento.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-                  {categorias.map((categoria, index) => (
-                    <Link
-                      key={categoria.id || index}
-                      to={categoria.path}
-                      className="relative block h-48 rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:-translate-y-1 hover:shadow-custom-xl group"
-                      aria-label={`Ver productos de ${categoria.titulo}`}
-                    >
-                      <div
-                        className="absolute inset-0 bg-cover bg-center opacity-30 transition-all duration-300 group-hover:opacity-50 group-hover:scale-105"
-                        style={{
-                          backgroundImage: categoria.imagen
-                            ? `url(${categoria.imagen})`
-                            : "linear-gradient(135deg, #8B4513 0%, #D2691E 100%)",
-                        }}
-                      ></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center px-4">
-                          <h2 className="text-2xl font-bold text-primary text-shadow-lg mb-2">
-                            {categoria.titulo}
-                          </h2>
-                          <p className="text-sm text-secondary font-medium text-shadow-sm">
-                            {categoria.descripcion}
-                          </p>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-4xl lg:text-5xl font-bold text-center mb-12 text-secondary">
+                  Nuestros Productos
+                </h1>
+
+                {categorias.length === 0 ? (
+                  <div className="text-center py-16">
+                    <p className="text-xl text-texto">
+                      No hay categorías disponibles en este momento.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {productosDestacados.length > 0 && (
+                      <>
+                        <h2 className="text-3xl lg:text-4xl font-bold text-center mb-10 text-secondary">
+                          Productos Destacados
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+                          {productosDestacados.map((producto) => (
+                            <ProductGridCard key={producto.id} producto={producto} />
+                          ))}
                         </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
+                      </>
+                    )}
+
+                    <h2 className="text-3xl lg:text-4xl font-bold text-center mb-10 text-secondary">
+                      Todos los Productos
+                    </h2>
+                    <ProductGrid
+                      products={todosLosProductos}
+                      emptyMessage="Elegí una categoría para ver los productos."
+                    />
+                  </>
+                )}
+              </div>
             </div>
           </section>
-
-          {/* Productos destacados - ESTRUCTURA IDÉNTICA A PRODUCTCATEGORY */}
-          {productosDestacados.length > 0 && (
-            <section className="bg-blanco py-20">
-              <div className="container">
-                <h2 className="text-3xl lg:text-4xl font-bold text-center mb-10 text-secondary">
-                  Productos Destacados
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {productosDestacados.map((producto) => (
-                    <div
-                      key={producto.id}
-                      className="producto-card bg-blanco rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:shadow-custom-lg"
-                    >
-                      {/* Imagen del producto con carrusel */}
-                      <ProductImageCarousel
-                        imagenes={producto.imagenes || []}
-                        titulo={producto.titulo}
-                        className="h-72"
-                      />
-
-                      {/* Info del producto */}
-                      <div className="p-6">
-                        <h3 className="text-xl font-semibold mb-2 text-secondary">
-                          {producto.titulo}
-                        </h3>
-
-                        {/* PRECIO */}
-                        {producto.precio_tipo === "fijo" &&
-                        producto.precio_valor ? (
-                          <p className="text-2xl font-bold text-primary mb-3">
-                            {formatPrice(producto.precio_valor)}
-                          </p>
-                        ) : producto.precio_tipo === "desde" &&
-                          producto.precio_valor ? (
-                          <p className="text-2xl font-bold text-primary mb-3">
-                            Desde {formatPrice(producto.precio_valor)}
-                          </p>
-                        ) : (
-                          <p className="text-2xl font-bold text-primary mb-3">
-                            Consultar
-                          </p>
-                        )}
-
-                        {/* Descripción */}
-                        {producto.descripcion && (
-                          <p className="text-texto mb-4">
-                            {producto.descripcion}
-                          </p>
-                        )}
-
-                        {/* Detalles del producto */}
-                        <div className="bg-gris-claro p-4 rounded-lg mb-4 space-y-2">
-                          {producto.material && (
-                            <p className="text-sm">
-                              <strong className="text-secondary">
-                                Material:
-                              </strong>{" "}
-                              {producto.material}
-                            </p>
-                          )}
-                          {producto.medidas && (
-                            <p className="text-sm">
-                              <strong className="text-secondary">
-                                Medidas:
-                              </strong>{" "}
-                              {producto.medidas}
-                            </p>
-                          )}
-                          {producto.personalizable && (
-                            <p className="text-sm">
-                              <strong className="text-secondary">
-                                Personalizable:
-                              </strong>{" "}
-                              {producto.personalizable}
-                            </p>
-                          )}
-                          {producto.capacidad && (
-                            <p className="text-sm">
-                              <strong className="text-secondary">
-                                Capacidad:
-                              </strong>{" "}
-                              {producto.capacidad}
-                            </p>
-                          )}
-                          {producto.colores && (
-                            <p className="text-sm">
-                              <strong className="text-secondary">
-                                Colores disponibles:
-                              </strong>{" "}
-                              {producto.colores}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* BOTONES CONDICIONALES - IGUAL QUE EN PRODUCTCATEGORY */}
-                        {producto.precio_tipo === "fijo" &&
-                        producto.precio_valor ? (
-                          <a
-                            href={generateWhatsAppUrl(producto)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center gap-2 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent"
-                          >
-                            <i className="fab fa-whatsapp text-xl"></i>
-                            Quiero este producto
-                          </a>
-                        ) : (
-                          <a
-                            href={generateWhatsAppUrl(producto)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="w-full flex items-center justify-center gap-2 bg-secondary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-gris-oscuro"
-                          >
-                            <i className="fab fa-whatsapp text-xl"></i>
-                            Consultar
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
         </>
       )}
     </>

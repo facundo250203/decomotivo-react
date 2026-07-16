@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { productsAPI, categoriesAPI, formatPrice } from "../services/api";
-import ProductImageCarousel from "./ProductImageCarousel";
+import { productsAPI, categoriesAPI } from "../services/api";
+import CategoryNav from "./CategoryNav";
+import ProductGrid from "./ProductGrid";
 
 const ProductCategory = ({ categorySlug }) => {
   const [category, setCategory] = useState(null);
@@ -44,12 +45,6 @@ const ProductCategory = ({ categorySlug }) => {
       fetchCategoryAndProducts();
     }
   }, [categorySlug]);
-
-  // Función para generar URL de WhatsApp
-  const generateWhatsAppUrl = (product) => {
-    const message = `Hola DecoMotivo, estoy interesado/a en ${product.titulo}. ¿Podrían darme más información?`;
-    return `https://wa.me/5493815128279?text=${encodeURIComponent(message)}`;
-  };
 
   // LOADING STATE
   if (loading) {
@@ -113,8 +108,8 @@ const ProductCategory = ({ categorySlug }) => {
       <section
         className="relative bg-cover bg-center text-blanco text-center py-16"
         style={{
-          backgroundImage: category.imagen_url
-            ? `url('${category.imagen_url}')`
+          backgroundImage: category.imagen_background
+            ? `url('${category.imagen_background}')`
             : "linear-gradient(135deg, #8B4513 0%, #D2691E 100%)",
         }}
       >
@@ -136,154 +131,15 @@ const ProductCategory = ({ categorySlug }) => {
 
       {/* Productos */}
       <section className="py-16 bg-fondo">
-        <div className="container">
-          <Link
-            to="/productos"
-            className="inline-flex items-center gap-2 bg-secondary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-gris-medio hover:-translate-y-1 mb-10"
-          >
-            <i className="fas fa-arrow-left"></i>
-            Volver a categorías
-          </Link>
+        <div className="container lg:flex lg:gap-8 lg:items-start">
+          <CategoryNav activeSlug={categorySlug} />
 
-          {/* NO PRODUCTS MESSAGE */}
-          {products.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="text-6xl mb-4">📦</div>
-              <h3 className="text-2xl font-bold text-secondary mb-2">
-                Todavía no hay productos en esta categoría
-              </h3>
-              <p className="text-texto mb-6">
-                Estamos trabajando para traerte los mejores productos. Volvé
-                pronto.
-              </p>
-              <a
-                href="https://wa.me/5493815128279?text=Hola%20DecoMotivo,%20quisiera%20consultar%20sobre%20productos"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent"
-              >
-                <i className="fab fa-whatsapp text-xl"></i>
-                Consultanos por WhatsApp
-              </a>
-            </div>
-          ) : (
-            /* PRODUCTS GRID */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {products.map((producto) => (
-                <div
-                  key={producto.id}
-                  className="producto-card bg-blanco rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:shadow-custom-lg"
-                >
-                  {/* Imagen del producto con carrusel */}
-                  <ProductImageCarousel
-                    imagenes={producto.imagenes}
-                    titulo={producto.titulo}
-                    className="h-72"
-                  />
-
-                  {/* Info del producto */}
-                  <div className="p-6">
-                    <h3 className="text-xl font-semibold mb-2 text-secondary">
-                      {producto.titulo}
-                    </h3>
-
-                    {/* PRECIO */}
-                    {producto.precio_tipo === "fijo" &&
-                    producto.precio_valor ? (
-                      <p className="text-2xl font-bold text-primary mb-3">
-                        {formatPrice(producto.precio_valor)}
-                      </p>
-                    ) : producto.precio_tipo === "desde" &&
-                      producto.precio_valor ? (
-                      <p className="text-2xl font-bold text-primary mb-3">
-                        Desde {formatPrice(producto.precio_valor)}
-                      </p>
-                    ) : (
-                      <p className="text-2xl font-bold text-primary mb-3">
-                        Consultar
-                      </p>
-                    )}
-
-                    {producto.descripcion && (
-                      <p className="text-texto mb-4">{producto.descripcion}</p>
-                    )}
-
-                    {/* Tiempo de entrega */}
-                    <p className="text-sm text-gris-medio mb-4 flex items-center gap-1">
-                      <i className="fas fa-clock text-primary"></i>
-                      {producto.tiempo_entrega_tipo === "inmediata"
-                        ? "Entrega inmediata"
-                        : `Preparación: ${producto.tiempo_entrega_dias} día${producto.tiempo_entrega_dias > 1 ? "s" : ""}`}
-                    </p>
-
-                    {/* Detalles del producto */}
-                    <div className="bg-gris-claro p-4 rounded-lg mb-4 space-y-2">
-                      {producto.material && (
-                        <p className="text-sm">
-                          <strong className="text-secondary">Material:</strong>{" "}
-                          {producto.material}
-                        </p>
-                      )}
-                      {producto.medidas && (
-                        <p className="text-sm">
-                          <strong className="text-secondary">Medidas:</strong>{" "}
-                          {producto.medidas}
-                        </p>
-                      )}
-                      {producto.personalizable && (
-                        <p className="text-sm">
-                          <strong className="text-secondary">
-                            Personalizable:
-                          </strong>{" "}
-                          {producto.personalizable}
-                        </p>
-                      )}
-                      {producto.capacidad && (
-                        <p className="text-sm">
-                          <strong className="text-secondary">Capacidad:</strong>{" "}
-                          {producto.capacidad}
-                        </p>
-                      )}
-                      {producto.colores && (
-                        <p className="text-sm">
-                          <strong className="text-secondary">
-                            Colores disponibles:
-                          </strong>{" "}
-                          {producto.colores}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* BOTONES CONDICIONALES */}
-                    {producto.precio_tipo === "fijo" &&
-                    producto.precio_valor ? (
-                      // Precio fijo → "Quiero este producto"
-                      <a
-                        href={generateWhatsAppUrl(producto)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-3 bg-primary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-accent hover:-translate-y-1"
-                      >
-                        <i className="fab fa-whatsapp text-xl"></i>
-                        Quiero este producto
-                      </a>
-                    ) : (
-                      // Precio "desde" o "consultar" → "Consultar"
-                      <a
-                        href={generateWhatsAppUrl(producto)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full inline-flex items-center justify-center gap-3 bg-secondary text-blanco px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-gris-medio hover:-translate-y-1"
-                      >
-                        <i className="fab fa-whatsapp text-xl"></i>
-                        Consultar
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex-1 min-w-0">
+            <ProductGrid
+              products={products}
+              emptyMessage="Todavía no hay productos en esta categoría"
+            />
+          </div>
         </div>
       </section>
     </>

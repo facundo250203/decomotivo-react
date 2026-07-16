@@ -34,13 +34,16 @@ const ProductImageCarousel = ({ imagenes = [], titulo, className = "h-72" }) => 
     };
   }, [lightboxOpen, currentImageIndex]);
 
-  // Si no hay imágenes, mostrar placeholder
+  // Si no hay imágenes, mostrar el logo como placeholder genérico -- evita
+  // que el producto se vea "roto" mientras no se le carga una foto propia.
   if (!imagenes || imagenes.length === 0) {
     return (
       <div className={`${className} overflow-hidden bg-gris-claro flex items-center justify-center`}>
-        <div className="text-center text-gris-medio">
-          <i className="fas fa-image text-6xl"></i>
-        </div>
+        <img
+          src="/images/logo.png"
+          alt={titulo}
+          className="w-1/2 h-1/2 object-contain opacity-40"
+        />
       </div>
     );
   }

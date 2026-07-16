@@ -13,19 +13,17 @@ import ProtectedRoute from "./components/admin/ProtectedRoute";
 // Páginas públicas
 import Inicio from "./pages/Inicio";
 import Productos from "./pages/Productos";
-import Contacto from "./pages/Contacto";
-import Tablas from "./pages/Tablas";
-import MatesVasos from "./pages/MatesVasos";
-import MDF from "./pages/MDF";
-import Otros from "./pages/Otros";
+import Ofertas from "./pages/Ofertas";
 import Combos from "./pages/Combos";
-import Decoraciones from "./pages/Decoraciones";
+import Contacto from "./pages/Contacto";
+import CategoryPage from "./pages/CategoryPage";
 import FAQ from "./pages/FAQ";
 import Gracias from "./pages/Gracias";
 import NotFound from "./pages/NotFound";
 
 // Páginas de admin
 import Login from "./pages/admin/Login";
+import InicioAdmin from "./pages/admin/Inicio";
 import Dashboard from "./pages/admin/Dashboard";
 import ProductList from "./pages/admin/ProductList";
 import ProductForm from "./pages/admin/ProductForm";
@@ -33,7 +31,18 @@ import ProductDetail from "./pages/admin/ProductDetail";
 import PedidosList from "./pages/admin/PedidosList";
 import PedidoDetalle from "./pages/admin/PedidoDetalle";
 import PedidoForm from "./pages/admin/PedidoForm";
-import ProductCategory from './components/ProductCategory';
+import VentasList from "./pages/admin/VentasList";
+import VentaDirectaForm from "./pages/admin/VentaDirectaForm";
+import SalidasList from "./pages/admin/SalidasList";
+import SalidaForm from "./pages/admin/SalidaForm";
+import CajaDashboard from "./pages/admin/CajaDashboard";
+import ProveedoresList from "./pages/admin/ProveedoresList";
+import ProveedorForm from "./pages/admin/ProveedorForm";
+import ComprasList from "./pages/admin/ComprasList";
+import CompraForm from "./pages/admin/CompraForm";
+import ClientesList from "./pages/admin/ClientesList";
+import ClienteForm from "./pages/admin/ClienteForm";
+import ClienteDetalle from "./pages/admin/ClienteDetalle";
 import { ToastProvider } from "./context/ToastContext";
 
 function App() {
@@ -50,12 +59,12 @@ function App() {
               {/* Login (público, sin autenticación) */}
               <Route path="/admin/login" element={<Login />} />
 
-              {/* Dashboard (protegido) */}
+              {/* Inicio del admin (protegido) */}
               <Route
                 path="/admin"
                 element={
                   <ProtectedRoute>
-                    <Dashboard />
+                    <InicioAdmin />
                   </ProtectedRoute>
                 }
               />
@@ -144,6 +153,164 @@ function App() {
                 }
               />
 
+              {/* ========== VENTAS ========== */}
+
+              <Route
+                path="/admin/ventas"
+                element={
+                  <ProtectedRoute>
+                    <VentasList />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/ventas/nueva"
+                element={
+                  <ProtectedRoute>
+                    <VentaDirectaForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ========== SALIDAS ========== */}
+
+              <Route
+                path="/admin/salidas"
+                element={
+                  <ProtectedRoute>
+                    <SalidasList />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/salidas/nueva"
+                element={
+                  <ProtectedRoute>
+                    <SalidaForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/salidas/editar/:id"
+                element={
+                  <ProtectedRoute>
+                    <SalidaForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ========== CAJA ========== */}
+
+              <Route
+                path="/admin/caja"
+                element={
+                  <ProtectedRoute>
+                    <CajaDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ========== DASHBOARD ========== */}
+
+              <Route
+                path="/admin/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ========== PROVEEDORES ========== */}
+
+              <Route
+                path="/admin/proveedores"
+                element={
+                  <ProtectedRoute>
+                    <ProveedoresList />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/proveedores/nuevo"
+                element={
+                  <ProtectedRoute>
+                    <ProveedorForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/proveedores/editar/:id"
+                element={
+                  <ProtectedRoute>
+                    <ProveedorForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ========== COMPRAS ========== */}
+
+              <Route
+                path="/admin/compras"
+                element={
+                  <ProtectedRoute>
+                    <ComprasList />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/compras/nueva"
+                element={
+                  <ProtectedRoute>
+                    <CompraForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ========== CLIENTES ========== */}
+
+              <Route
+                path="/admin/clientes"
+                element={
+                  <ProtectedRoute>
+                    <ClientesList />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/clientes/nuevo"
+                element={
+                  <ProtectedRoute>
+                    <ClienteForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/clientes/editar/:id"
+                element={
+                  <ProtectedRoute>
+                    <ClienteForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/clientes/:id"
+                element={
+                  <ProtectedRoute>
+                    <ClienteDetalle />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* ============================================ */}
               {/* RUTAS PÚBLICAS (con Header y Footer) */}
               {/* ============================================ */}
@@ -190,59 +357,23 @@ function App() {
                 }
               />
 
-              {/* Páginas de categorías */}
+              {/* Ofertas: no es una categoría real de la DB, es un filtro
+                  sobre productos.en_oferta (ver src/pages/Ofertas.jsx) */}
               <Route
-                path="/tablas"
+                path="/ofertas"
                 element={
                   <>
                     <Header />
                     <main className="min-h-screen">
-                      <Tablas />
+                      <Ofertas />
                     </main>
                     <Footer />
                   </>
                 }
               />
 
-              <Route
-                path="/mates-vasos"
-                element={
-                  <>
-                    <Header />
-                    <main className="min-h-screen">
-                      <MatesVasos />
-                    </main>
-                    <Footer />
-                  </>
-                }
-              />
-
-              <Route
-                path="/mdf"
-                element={
-                  <>
-                    <Header />
-                    <main className="min-h-screen">
-                      <MDF />
-                    </main>
-                    <Footer />
-                  </>
-                }
-              />
-
-              <Route
-                path="/otros"
-                element={
-                  <>
-                    <Header />
-                    <main className="min-h-screen">
-                      <Otros />
-                    </main>
-                    <Footer />
-                  </>
-                }
-              />
-
+              {/* Combos: no es una categoría real de la DB, es un filtro
+                  sobre productos.precio_tipo='combo' (ver src/pages/Combos.jsx) */}
               <Route
                 path="/combos"
                 element={
@@ -256,26 +387,16 @@ function App() {
                 }
               />
 
+              {/* Página de categoría (dinámica: tablas, mates-vasos, mdf,
+                  otros, combos, decoraciones, libreria, tecnologia, y
+                  cualquier categoría nueva que se agregue a la DB) */}
               <Route
-                path="/decoraciones"
+                path="/:categorySlug"
                 element={
                   <>
                     <Header />
                     <main className="min-h-screen">
-                      <Decoraciones />
-                    </main>
-                    <Footer />
-                  </>
-                }
-              />
-              {/* Libreria */}
-              <Route
-                path="/libreria"
-                element={
-                  <>
-                    <Header />
-                    <main className="min-h-screen">
-                      <ProductCategory categorySlug="libreria" />
+                      <CategoryPage />
                     </main>
                     <Footer />
                   </>

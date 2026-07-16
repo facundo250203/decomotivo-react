@@ -16,7 +16,6 @@ const Header = () => {
   const menuItems = [
     { path: "/inicio", label: "¿Quiénes somos?" },
     { path: "/productos", label: "Productos" },
-    { path: "/libreria", label: "Librería" },
     { path: "/contacto", label: "Contacto" },
   ];
 
