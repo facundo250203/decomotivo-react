@@ -18,7 +18,7 @@ const AdminLayout = ({ children }) => {
 
   const menuItems = [
     {
-      name: 'Dashboard',
+      name: 'Inicio',
       icon: 'fa-home',
       path: '/admin',
       exact: true
@@ -32,6 +32,41 @@ const AdminLayout = ({ children }) => {
       name: 'Pedidos',
       icon: 'fa-shopping-cart',
       path: '/admin/pedidos'
+    },
+    {
+      name: 'Ventas',
+      icon: 'fa-cash-register',
+      path: '/admin/ventas'
+    },
+    {
+      name: 'Compras',
+      icon: 'fa-dolly',
+      path: '/admin/compras'
+    },
+    {
+      name: 'Salidas',
+      icon: 'fa-money-bill-wave',
+      path: '/admin/salidas'
+    },
+    {
+      name: 'Caja',
+      icon: 'fa-wallet',
+      path: '/admin/caja'
+    },
+    {
+      name: 'Dashboard',
+      icon: 'fa-chart-line',
+      path: '/admin/dashboard'
+    },
+    {
+      name: 'Proveedores',
+      icon: 'fa-truck',
+      path: '/admin/proveedores'
+    },
+    {
+      name: 'Clientes',
+      icon: 'fa-users',
+      path: '/admin/clientes'
     },
   ];
 
