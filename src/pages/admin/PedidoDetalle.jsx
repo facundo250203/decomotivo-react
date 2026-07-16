@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
-import { adminOrdersAPI } from "../../services/api";
+import { adminOrdersAPI, ventasAPI } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { getErrorInfo } from "../../utils/errorHandler";
@@ -12,8 +12,12 @@ const PedidoDetalle = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
   const [pedido, setPedido] = useState(null);
+  const [pagos, setPagos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
+  const [modalPago, setModalPago] = useState(null); // 'senar' | 'pago' | null
+  const [montoEfectivo, setMontoEfectivo] = useState("");
+  const [montoTransferencia, setMontoTransferencia] = useState("");
   const toast = useToast();
 
   useEffect(() => {
@@ -23,9 +27,15 @@ const PedidoDetalle = () => {
   const fetchPedido = async () => {
     try {
       setLoading(true);
-      const response = await adminOrdersAPI.getById(id, token);
-      if (response.success) {
-        setPedido(response.data);
+      const [pedidoResponse, pagosResponse] = await Promise.all([
+        adminOrdersAPI.getById(id, token),
+        ventasAPI.getAll({ pedido_id: id }, token),
+      ]);
+      if (pedidoResponse.success) {
+        setPedido(pedidoResponse.data);
+      }
+      if (pagosResponse.success) {
+        setPagos(pagosResponse.data);
       }
     } catch (error) {
       const { title, message, detail } = getErrorInfo(error);
@@ -38,16 +48,64 @@ const PedidoDetalle = () => {
     }
   };
 
-  const handleCambiarEstado = async (nuevoEstado) => {
-    if (!window.confirm(`¿Cambiar el estado del pedido a "${nuevoEstado}"?`))
+  const totalPagado = pagos.reduce((acc, pago) => acc + pago.monto_total, 0);
+
+  const abrirModalPago = (tipo) => {
+    setMontoEfectivo("");
+    setMontoTransferencia("");
+    setModalPago(tipo);
+  };
+
+  const cerrarModalPago = () => setModalPago(null);
+
+  const confirmarPago = async () => {
+    const efectivo = parseFloat(montoEfectivo) || 0;
+    const transferencia = parseFloat(montoTransferencia) || 0;
+
+    if (efectivo <= 0 && transferencia <= 0) {
+      toast.warning(
+        "Monto requerido",
+        "Ingresá un monto en efectivo y/o transferencia.",
+      );
       return;
+    }
+
     try {
       setCambiandoEstado(true);
-      await adminOrdersAPI.updateStatus(id, nuevoEstado, token);
-      toast.success(
-        "Estado actualizado",
-        `El pedido pasó a "${nuevoEstado}" correctamente.`,
-      );
+
+      if (modalPago === "senar") {
+        await adminOrdersAPI.updateStatus(
+          id,
+          "senado",
+          { monto_efectivo: efectivo, monto_transferencia: transferencia },
+          token,
+        );
+        toast.success("Pedido señado", "El pedido pasó a estado señado.");
+      } else {
+        await adminOrdersAPI.registerPayment(
+          id,
+          { monto_efectivo: efectivo, monto_transferencia: transferencia },
+          token,
+        );
+        toast.success("Pago registrado", "El pago se registró correctamente.");
+      }
+
+      cerrarModalPago();
+      fetchPedido();
+    } catch (error) {
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
+    } finally {
+      setCambiandoEstado(false);
+    }
+  };
+
+  const handleMarcarEntregado = async () => {
+    if (!window.confirm('¿Marcar este pedido como "entregado"?')) return;
+    try {
+      setCambiandoEstado(true);
+      await adminOrdersAPI.updateStatus(id, "entregado", {}, token);
+      toast.success("Estado actualizado", 'El pedido pasó a "entregado".');
       fetchPedido();
     } catch (error) {
       const { title, message, detail } = getErrorInfo(error);
@@ -84,32 +142,6 @@ const PedidoDetalle = () => {
     return colores[estado] || "text-gray-600 bg-gray-100";
   };
 
-  const getEstadoBotones = () => {
-    if (!pedido) return [];
-
-    const { estado } = pedido;
-
-    if (estado === "solicitado") {
-      return [
-        {
-          label: "Marcar como Señado",
-          valor: "senado",
-          icon: "fa-hand-holding-usd",
-        },
-      ];
-    } else if (estado === "senado") {
-      return [
-        {
-          label: "Marcar como Entregado",
-          valor: "entregado",
-          icon: "fa-check-circle",
-        },
-      ];
-    }
-
-    return [];
-  };
-
   if (loading) {
     return (
       <AdminLayout>
@@ -139,6 +171,8 @@ const PedidoDetalle = () => {
     );
   }
 
+  const saldoPendiente = pedido.total - totalPagado;
+
   return (
     <AdminLayout>
       {/* Header */}
@@ -160,17 +194,37 @@ const PedidoDetalle = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            {getEstadoBotones().map((boton) => (
+            {pedido.estado === "solicitado" && (
               <button
-                key={boton.valor}
-                onClick={() => handleCambiarEstado(boton.valor)}
+                onClick={() => abrirModalPago("senar")}
                 disabled={cambiandoEstado}
                 className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                <i className={`fas ${boton.icon}`}></i>
-                {boton.label}
+                <i className="fas fa-hand-holding-usd"></i>
+                Marcar como Señado
               </button>
-            ))}
+            )}
+            {pedido.estado === "senado" && (
+              <button
+                onClick={handleMarcarEntregado}
+                disabled={cambiandoEstado}
+                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <i className="fas fa-check-circle"></i>
+                Marcar como Entregado
+              </button>
+            )}
+            {(pedido.estado === "senado" || pedido.estado === "entregado") &&
+              saldoPendiente > 0.01 && (
+                <button
+                  onClick={() => abrirModalPago("pago")}
+                  disabled={cambiandoEstado}
+                  className="bg-secondary text-white px-4 py-2 rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <i className="fas fa-money-bill-wave"></i>
+                  Registrar pago
+                </button>
+              )}
           </div>
         </div>
       </div>
@@ -236,6 +290,50 @@ const PedidoDetalle = () => {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Historial de pagos */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <i className="fas fa-receipt text-primary"></i>
+              Historial de pagos
+            </h3>
+            {pagos.length === 0 ? (
+              <p className="text-gray-500 text-sm">
+                Todavía no se registró ningún pago para este pedido.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {pagos.map((pago) => (
+                  <div
+                    key={pago.id}
+                    className="flex justify-between items-center border rounded-lg p-3 text-sm"
+                  >
+                    <div>
+                      <p className="font-medium capitalize">
+                        {pago.tipo === "sena" ? "Seña" : "Pago"}
+                      </p>
+                      <p className="text-gray-500">{formatFecha(pago.fecha)}</p>
+                    </div>
+                    <div className="text-right">
+                      {pago.monto_efectivo > 0 && (
+                        <p className="text-gray-600">
+                          Efectivo: {formatPrecio(pago.monto_efectivo)}
+                        </p>
+                      )}
+                      {pago.monto_transferencia > 0 && (
+                        <p className="text-gray-600">
+                          Transferencia: {formatPrecio(pago.monto_transferencia)}
+                        </p>
+                      )}
+                      <p className="font-semibold">
+                        {formatPrecio(pago.monto_total)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Notas */}
@@ -307,17 +405,79 @@ const PedidoDetalle = () => {
                 <span>{formatPrecio(pedido.total)}</span>
               </div>
               <div className="flex justify-between text-green-600 font-semibold pt-2 border-t">
-                <span>Seña pagada:</span>
-                <span>{formatPrecio(pedido.monto_sena)}</span>
+                <span>Pagado hasta ahora:</span>
+                <span>{formatPrecio(totalPagado)}</span>
               </div>
               <div className="flex justify-between text-orange-600 font-semibold">
                 <span>Saldo pendiente:</span>
-                <span>{formatPrecio(pedido.total - pedido.monto_sena)}</span>
+                <span>{formatPrecio(Math.max(saldoPendiente, 0))}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modal de carga de pago (señar o registrar pago adicional) */}
+      {modalPago && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold mb-4">
+              {modalPago === "senar"
+                ? "Confirmar seña"
+                : "Registrar pago adicional"}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Indicá cuánto se pagó en efectivo y/o transferencia.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Efectivo
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={montoEfectivo}
+                  onChange={(e) => setMontoEfectivo(e.target.value)}
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-texto mb-2">
+                  Transferencia
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={montoTransferencia}
+                  onChange={(e) => setMontoTransferencia(e.target.value)}
+                  className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={confirmarPago}
+                disabled={cambiandoEstado}
+                className="flex-1 bg-primary text-white py-2 px-4 rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={cerrarModalPago}
+                disabled={cambiandoEstado}
+                className="px-4 py-2 border border-gris-claro rounded-lg hover:bg-gris-claro transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };

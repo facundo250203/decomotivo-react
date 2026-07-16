@@ -7,6 +7,7 @@ const {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
+  registerPayment,
   updateOrder,
   deleteOrder,
   getOrderStats
@@ -30,6 +31,9 @@ router.post('/', authenticateToken, createOrder);
 
 // Actualizar estado del pedido
 router.put('/:id/estado', authenticateToken, updateOrderStatus);
+
+// Registrar un pago adicional sobre un pedido ya señado
+router.post('/:id/pagos', authenticateToken, registerPayment);
 
 // Actualizar pedido completo
 router.put('/:id', authenticateToken, updateOrder);

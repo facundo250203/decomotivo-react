@@ -153,7 +153,7 @@ const PedidosList = () => {
                         Total
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Seña
+                        Pagado
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Estado
@@ -187,7 +187,7 @@ const PedidosList = () => {
                           {formatPrecio(pedido.total)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatPrecio(pedido.monto_sena)}
+                          {formatPrecio(pedido.total_pagado)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex text-xs px-2 py-1 rounded-full font-semibold ${getEstadoBadge(pedido.estado)}`}>
