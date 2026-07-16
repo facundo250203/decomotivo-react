@@ -968,6 +968,37 @@ export const clientesAPI = {
       console.error(`Error eliminando cliente ${id}:`, error);
       throw error;
     }
+  },
+
+  // Saldo (deudor/a favor) + historial de movimientos del cliente
+  getCuentaCorriente: async (id, token) => {
+    try {
+      const response = await fetch(`${API_URL}/clientes/${id}/cuenta-corriente`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error obteniendo cuenta corriente del cliente ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Registrar un pago suelto del cliente contra su deuda
+  registrarPago: async (id, pagoData, token) => {
+    try {
+      const response = await fetch(`${API_URL}/clientes/${id}/pagos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(pagoData),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error registrando pago del cliente ${id}:`, error);
+      throw error;
+    }
   }
 };
 

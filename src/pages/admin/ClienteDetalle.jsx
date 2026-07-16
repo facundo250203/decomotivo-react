@@ -7,6 +7,12 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { getErrorInfo } from "../../utils/errorHandler";
 
+const TIPO_MOVIMIENTO_LABEL = {
+  venta_fiado: "Venta a cuenta",
+  pago_cliente: "Pago",
+  saldo_a_favor_aplicado: "Saldo a favor aplicado",
+};
+
 const ClienteDetalle = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -15,7 +21,15 @@ const ClienteDetalle = () => {
   const [cliente, setCliente] = useState(null);
   const [pedidos, setPedidos] = useState([]);
   const [ventas, setVentas] = useState([]);
+  const [saldo, setSaldo] = useState(0);
+  const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [mostrarFormPago, setMostrarFormPago] = useState(false);
+  const [pagoEfectivo, setPagoEfectivo] = useState("");
+  const [pagoTransferencia, setPagoTransferencia] = useState("");
+  const [pagoNotas, setPagoNotas] = useState("");
+  const [registrandoPago, setRegistrandoPago] = useState(false);
 
   useEffect(() => {
     fetchTodo();
@@ -24,20 +38,79 @@ const ClienteDetalle = () => {
   const fetchTodo = async () => {
     try {
       setLoading(true);
-      const [clienteRes, pedidosRes, ventasRes] = await Promise.all([
+      const [clienteRes, pedidosRes, ventasRes, cuentaRes] = await Promise.all([
         clientesAPI.getById(id, token),
         adminOrdersAPI.getAll({ cliente_id: id }, token),
         ventasAPI.getAll({ cliente_id: id }, token),
+        clientesAPI.getCuentaCorriente(id, token),
       ]);
       if (clienteRes.success) setCliente(clienteRes.data);
       if (pedidosRes.success) setPedidos(pedidosRes.data || []);
       if (ventasRes.success) setVentas(ventasRes.data || []);
+      if (cuentaRes.success) {
+        setSaldo(cuentaRes.data.saldo);
+        setMovimientos(cuentaRes.data.movimientos || []);
+      }
     } catch (error) {
       const { title, message, detail } = getErrorInfo(error);
       toast.error(title, message, detail);
       navigate("/admin/clientes");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCuentaCorriente = async () => {
+    try {
+      const cuentaRes = await clientesAPI.getCuentaCorriente(id, token);
+      if (cuentaRes.success) {
+        setSaldo(cuentaRes.data.saldo);
+        setMovimientos(cuentaRes.data.movimientos || []);
+      }
+    } catch (error) {
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
+    }
+  };
+
+  const handleRegistrarPago = async (e) => {
+    e.preventDefault();
+
+    const efectivo = parseFloat(pagoEfectivo) || 0;
+    const transferencia = parseFloat(pagoTransferencia) || 0;
+
+    if (efectivo <= 0 && transferencia <= 0) {
+      toast.warning(
+        "Sin monto",
+        "Indicá un monto en efectivo y/o transferencia para registrar el pago.",
+      );
+      return;
+    }
+
+    try {
+      setRegistrandoPago(true);
+      const response = await clientesAPI.registrarPago(
+        id,
+        {
+          monto_efectivo: efectivo,
+          monto_transferencia: transferencia,
+          notas: pagoNotas || undefined,
+        },
+        token,
+      );
+      if (response.success) {
+        toast.success("Pago registrado", "El pago se cargó correctamente.");
+        setPagoEfectivo("");
+        setPagoTransferencia("");
+        setPagoNotas("");
+        setMostrarFormPago(false);
+        await fetchCuentaCorriente();
+      }
+    } catch (error) {
+      const { title, message, detail } = getErrorInfo(error);
+      toast.error(title, message, detail);
+    } finally {
+      setRegistrandoPago(false);
     }
   };
 
@@ -177,7 +250,9 @@ const ClienteDetalle = () => {
                           ? "Venta directa"
                           : venta.tipo === "sena"
                             ? "Seña"
-                            : "Pago"}
+                            : venta.tipo === "pago_cuenta_corriente"
+                              ? "Pago de cuenta corriente"
+                              : "Pago"}
                       </p>
                       <p className="text-gray-500">
                         {formatFecha(venta.fecha)}
@@ -185,6 +260,115 @@ const ClienteDetalle = () => {
                     </div>
                     <span className="font-semibold">
                       {formatPrecio(venta.monto_total)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Cuenta corriente */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <i className="fas fa-file-invoice-dollar text-primary"></i>
+                Cuenta corriente
+              </h3>
+              <button
+                type="button"
+                onClick={() => setMostrarFormPago((v) => !v)}
+                className="text-sm bg-primary text-white px-3 py-1 rounded hover:bg-accent transition-colors"
+              >
+                <i className="fas fa-hand-holding-usd mr-1"></i>
+                Registrar pago
+              </button>
+            </div>
+
+            {mostrarFormPago && (
+              <form
+                onSubmit={handleRegistrarPago}
+                className="border rounded-lg p-4 mb-4 bg-gray-50 space-y-3"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">
+                      Efectivo
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={pagoEfectivo}
+                      onChange={(e) => setPagoEfectivo(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">
+                      Transferencia
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={pagoTransferencia}
+                      onChange={(e) => setPagoTransferencia(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">
+                    Notas (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={pagoNotas}
+                    onChange={(e) => setPagoNotas(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={registrandoPago}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {registrandoPago ? "Registrando..." : "Confirmar pago"}
+                </button>
+              </form>
+            )}
+
+            {movimientos.length === 0 ? (
+              <p className="text-gray-500 text-sm">
+                Este cliente todavía no tiene movimientos de cuenta corriente.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {movimientos.map((mov) => (
+                  <div
+                    key={mov.id}
+                    className="flex justify-between items-center border rounded-lg p-3 text-sm"
+                  >
+                    <div>
+                      <p className="font-medium">
+                        {TIPO_MOVIMIENTO_LABEL[mov.tipo] || mov.tipo}
+                      </p>
+                      <p className="text-gray-500">{formatFecha(mov.fecha)}</p>
+                      {mov.notas && (
+                        <p className="text-gray-400 text-xs">{mov.notas}</p>
+                      )}
+                    </div>
+                    <span
+                      className={`font-semibold ${
+                        mov.tipo === "pago_cliente"
+                          ? "text-green-600"
+                          : "text-gray-900"
+                      }`}
+                    >
+                      {mov.tipo === "pago_cliente" ? "-" : "+"}
+                      {formatPrecio(mov.monto)}
                     </span>
                   </div>
                 ))}
@@ -235,6 +419,26 @@ const ClienteDetalle = () => {
               <div className="flex justify-between text-xl font-bold text-gray-900 pt-3 border-t">
                 <span>Total gastado:</span>
                 <span>{formatPrecio(totalGastado)}</span>
+              </div>
+              <div className="flex justify-between items-center pt-3 border-t">
+                <span className="text-gray-600">
+                  {saldo > 0
+                    ? "Debe:"
+                    : saldo < 0
+                      ? "Saldo a favor:"
+                      : "Cuenta corriente:"}
+                </span>
+                <span
+                  className={`text-xl font-bold ${
+                    saldo > 0
+                      ? "text-red-600"
+                      : saldo < 0
+                        ? "text-green-600"
+                        : "text-gray-900"
+                  }`}
+                >
+                  {formatPrecio(Math.abs(saldo))}
+                </span>
               </div>
             </div>
           </div>
