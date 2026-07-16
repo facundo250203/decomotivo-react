@@ -1,4 +1,9 @@
 const { promisePool } = require("../config/database");
+const { parseMontoValidado } = require("../utils/montoValidation");
+const {
+  calcularSaldoCliente,
+  registrarMovimientoCuentaCorriente,
+} = require("../utils/cuentaCorriente");
 
 // Campos editables vía updateCliente. `activo` queda afuera a propósito:
 // se maneja solo por el soft delete (deleteCliente), nunca por este update.
@@ -231,11 +236,141 @@ const deleteCliente = async (req, res) => {
   }
 };
 
+// ============================================
+// CUENTA CORRIENTE DEL CLIENTE (saldo + historial de movimientos)
+// saldo > 0 = el cliente debe esa plata. saldo < 0 = tiene saldo a favor
+// por ese valor absoluto (ver backend/utils/cuentaCorriente.js).
+// ============================================
+const getCuentaCorriente = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [clientes] = await promisePool.query(
+      "SELECT id FROM clientes WHERE id = ?",
+      [id],
+    );
+    if (clientes.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Cliente no encontrado" });
+    }
+
+    const saldo = await calcularSaldoCliente(promisePool, id);
+
+    const [movimientos] = await promisePool.query(
+      `SELECT id, tipo, monto, venta_id, fecha, notas
+       FROM movimientos_cuenta_corriente
+       WHERE cliente_id = ?
+       ORDER BY fecha DESC, id DESC`,
+      [id],
+    );
+
+    res.json({
+      success: true,
+      data: {
+        saldo,
+        movimientos: movimientos.map((m) => ({
+          ...m,
+          monto: parseFloat(m.monto),
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Error obteniendo cuenta corriente:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al obtener la cuenta corriente del cliente",
+      message: error.message,
+    });
+  }
+};
+
+// ============================================
+// REGISTRAR PAGO DEL CLIENTE (reduce deuda, o suma a favor si paga de más)
+// Se registra también como una venta (tipo 'pago_cuenta_corriente', sin
+// ítems) para que la plata real entrada quede reflejada en caja -- mismo
+// patrón que orderController.registerPayment usa para pagos de pedido.
+// ============================================
+const registrarPagoCuentaCorriente = async (req, res) => {
+  const connection = await promisePool.getConnection();
+
+  try {
+    const { id } = req.params;
+    const { monto_efectivo = 0, monto_transferencia = 0, notas } = req.body;
+
+    const efectivoValidado = parseMontoValidado(monto_efectivo);
+    const transferenciaValidada = parseMontoValidado(monto_transferencia);
+
+    if (efectivoValidado === null || transferenciaValidada === null) {
+      return res.status(400).json({
+        success: false,
+        error: "Los montos deben ser números válidos y no negativos",
+      });
+    }
+
+    if (efectivoValidado <= 0 && transferenciaValidada <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Debe indicarse un monto en efectivo y/o transferencia",
+      });
+    }
+
+    await connection.beginTransaction();
+
+    const [clientes] = await connection.query(
+      "SELECT id FROM clientes WHERE id = ? FOR UPDATE",
+      [id],
+    );
+    if (clientes.length === 0) {
+      await connection.rollback();
+      return res
+        .status(404)
+        .json({ success: false, error: "Cliente no encontrado" });
+    }
+
+    const [ventaResult] = await connection.query(
+      `INSERT INTO ventas (cliente_id, tipo, monto_efectivo, monto_transferencia, notas)
+       VALUES (?, 'pago_cuenta_corriente', ?, ?, ?)`,
+      [id, efectivoValidado, transferenciaValidada, notas || null],
+    );
+
+    await registrarMovimientoCuentaCorriente(connection, {
+      clienteId: id,
+      tipo: "pago_cliente",
+      monto: efectivoValidado + transferenciaValidada,
+      ventaId: ventaResult.insertId,
+      notas: notas || null,
+    });
+
+    await connection.commit();
+
+    const saldo = await calcularSaldoCliente(promisePool, id);
+
+    res.status(201).json({
+      success: true,
+      message: "Pago registrado exitosamente",
+      data: { id: ventaResult.insertId, saldo },
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Error registrando pago de cuenta corriente:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al registrar el pago",
+      message: error.message,
+    });
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   getAllClientes,
   getClienteById,
   createCliente,
   updateCliente,
   deleteCliente,
+  getCuentaCorriente,
+  registrarPagoCuentaCorriente,
   CAMPOS_EDITABLES_CLIENTE,
 };

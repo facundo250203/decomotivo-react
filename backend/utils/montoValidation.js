@@ -8,8 +8,12 @@ const parseMontoValidado = (valor) => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 };
 
-// Compara un monto cargado (efectivo+transferencia) contra un total
-// esperado, con tolerancia de un centavo por redondeo de punto flotante.
+// Compara un monto cargado contra un total esperado, con tolerancia de un
+// centavo por redondeo de punto flotante. Genérico a propósito: no asume
+// qué componentes se sumaron para armar montoCargado (efectivo+
+// transferencia en pedidos/pagos sueltos, o efectivo+transferencia+cuenta
+// corriente en ventasController.createVentaDirecta) -- cada caller arma esa
+// suma según sus propias formas de pago.
 const montoCoincide = (montoCargado, montoEsperado, tolerancia = 0.01) =>
   Math.abs(montoCargado - montoEsperado) <= tolerancia;
 

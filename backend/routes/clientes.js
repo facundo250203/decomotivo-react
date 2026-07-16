@@ -8,6 +8,8 @@ const {
   createCliente,
   updateCliente,
   deleteCliente,
+  getCuentaCorriente,
+  registrarPagoCuentaCorriente,
   CAMPOS_EDITABLES_CLIENTE,
 } = require("../controllers/clientesController");
 
@@ -21,5 +23,11 @@ router.put(
   updateCliente,
 );
 router.delete("/:id", authenticateToken, deleteCliente);
+
+// Cuenta corriente (saldo + historial de movimientos)
+router.get("/:id/cuenta-corriente", authenticateToken, getCuentaCorriente);
+
+// Registrar un pago suelto del cliente contra su deuda
+router.post("/:id/pagos", authenticateToken, registrarPagoCuentaCorriente);
 
 module.exports = router;

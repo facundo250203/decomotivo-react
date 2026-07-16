@@ -8,6 +8,10 @@ const {
   aplicarMovimientoStockCombo,
 } = require("../utils/stockMovements");
 const { notificarN8N } = require("../utils/n8nWebhook");
+const {
+  calcularSaldoCliente,
+  registrarMovimientoCuentaCorriente,
+} = require("../utils/cuentaCorriente");
 
 // ============================================
 // LISTAR VENTAS (libro de caja, filtrable por rango de fechas y/o pedido)
@@ -25,7 +29,7 @@ const getVentas = async (req, res) => {
     let query = `
       SELECT
         v.id, v.pedido_id, v.cliente_id, v.fecha, v.monto_efectivo, v.monto_transferencia,
-        v.descuento, v.monto_total, v.tipo, v.notas,
+        v.monto_cuenta_corriente, v.descuento, v.monto_total, v.tipo, v.notas,
         COALESCE(v.cliente_nombre, CONCAT_WS(' ', cl.nombre, cl.apellido), p.cliente_nombre) as cliente_nombre,
         COALESCE(v.cliente_telefono, cl.telefono, p.cliente_telefono) as cliente_telefono,
         -- Venta directa tiene sus propios venta_items; seña/pago no tienen
@@ -82,6 +86,7 @@ const getVentas = async (req, res) => {
         ...row,
         monto_efectivo: parseFloat(row.monto_efectivo),
         monto_transferencia: parseFloat(row.monto_transferencia),
+        monto_cuenta_corriente: parseFloat(row.monto_cuenta_corriente),
         descuento: parseFloat(row.descuento),
         monto_total: parseFloat(row.monto_total),
       })),
@@ -139,6 +144,7 @@ const getVentaById = async (req, res) => {
         cliente_telefono: venta.cliente_telefono_resuelto,
         monto_efectivo: parseFloat(venta.monto_efectivo),
         monto_transferencia: parseFloat(venta.monto_transferencia),
+        monto_cuenta_corriente: parseFloat(venta.monto_cuenta_corriente),
         descuento: parseFloat(venta.descuento),
         monto_total: parseFloat(venta.monto_total),
         items: items.map((item) => ({
@@ -160,9 +166,11 @@ const getVentaById = async (req, res) => {
 
 // ============================================
 // CREAR VENTA DIRECTA DE MOSTRADOR
-// El monto cargado (efectivo + transferencia) debe coincidir exacto con la
-// suma de los items menos el descuento manual. Descuenta stock producto por
-// producto, bloqueando si no alcanza (misma técnica que updateOrderStatus).
+// El monto cargado (efectivo + transferencia + a cuenta) debe coincidir
+// exacto con el total de los items menos el descuento y menos el saldo a
+// favor que se le haya aplicado automáticamente al cliente (ver más abajo).
+// Descuenta stock producto por producto, bloqueando si no alcanza (misma
+// técnica que updateOrderStatus).
 // ============================================
 const createVentaDirecta = async (req, res) => {
   const connection = await promisePool.getConnection();
@@ -174,6 +182,7 @@ const createVentaDirecta = async (req, res) => {
       cliente_telefono,
       monto_efectivo = 0,
       monto_transferencia = 0,
+      monto_cuenta_corriente = 0,
       descuento = 0,
       notas,
       items,
@@ -186,6 +195,19 @@ const createVentaDirecta = async (req, res) => {
       });
     }
 
+    const montoCuentaCorrienteNum = parseFloat(monto_cuenta_corriente) || 0;
+
+    // No existe "a cuenta" sin saber a quién se le fía -- lo mismo aplica al
+    // reforzar en la base con chk_ventas_cuenta_corriente_requiere_cliente
+    // (ver migración 023), esto solo da un mensaje amigable antes de llegar
+    // a ese error crudo de SQL.
+    if (montoCuentaCorrienteNum > 0 && !cliente_id) {
+      return res.status(400).json({
+        success: false,
+        error: "Para vender a cuenta corriente hay que vincular un cliente registrado",
+      });
+    }
+
     const sumaItems = items.reduce(
       (acc, item) =>
         acc + parseFloat(item.precio_unitario) * parseInt(item.cantidad),
@@ -193,31 +215,54 @@ const createVentaDirecta = async (req, res) => {
     );
 
     const montoEsperado = sumaItems - parseFloat(descuento);
-    const montoCargado =
-      parseFloat(monto_efectivo) + parseFloat(monto_transferencia);
-
-    if (!montoCoincide(montoCargado, montoEsperado)) {
-      return res.status(400).json({
-        success: false,
-        error: `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total de los productos menos el descuento (${montoEsperado.toFixed(2)})`,
-      });
-    }
-
-    if (montoCargado <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: "Debe indicarse un monto en efectivo y/o transferencia",
-      });
-    }
 
     await connection.beginTransaction();
 
+    // Si el cliente tiene saldo a favor, se aplica siempre automático (sin
+    // opt-out -- así se acordó con el dueño): reduce lo que hay que cobrar
+    // por efectivo/transferencia/cuenta antes de validar el monto cargado.
+    let saldoAFavorAplicado = 0;
+    if (cliente_id) {
+      const saldoActual = await calcularSaldoCliente(connection, cliente_id);
+      const saldoAFavorDisponible = saldoActual < 0 ? -saldoActual : 0;
+      saldoAFavorAplicado = Math.min(saldoAFavorDisponible, montoEsperado);
+    }
+
+    const montoAPagar = montoEsperado - saldoAFavorAplicado;
+    const montoCargado =
+      parseFloat(monto_efectivo) +
+      parseFloat(monto_transferencia) +
+      montoCuentaCorrienteNum;
+
+    if (!montoCoincide(montoCargado, montoAPagar)) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        error:
+          saldoAFavorAplicado > 0
+            ? `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total a pagar (${montoAPagar.toFixed(2)}), ya descontado el saldo a favor aplicado (${saldoAFavorAplicado.toFixed(2)})`
+            : `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total de los productos menos el descuento (${montoEsperado.toFixed(2)})`,
+      });
+    }
+
+    // Con saldo a favor cubriendo todo (montoAPagar === 0) es válido no
+    // cargar nada de efectivo/transferencia/cuenta -- ver migración 023
+    // (se eliminó chk_ventas_algun_monto por este mismo motivo).
+    if (montoCargado <= 0 && montoAPagar > 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        error: "Debe indicarse un monto en efectivo, transferencia y/o a cuenta",
+      });
+    }
+
     const [ventaResult] = await connection.query(
-      `INSERT INTO ventas (tipo, monto_efectivo, monto_transferencia, descuento, cliente_id, cliente_nombre, cliente_telefono, notas)
-       VALUES ('venta_directa', ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ventas (tipo, monto_efectivo, monto_transferencia, monto_cuenta_corriente, descuento, cliente_id, cliente_nombre, cliente_telefono, notas)
+       VALUES ('venta_directa', ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         monto_efectivo,
         monto_transferencia,
+        montoCuentaCorrienteNum,
         descuento,
         cliente_id || null,
         cliente_nombre || null,
@@ -302,6 +347,25 @@ const createVentaDirecta = async (req, res) => {
       });
     }
 
+    if (saldoAFavorAplicado > 0) {
+      await registrarMovimientoCuentaCorriente(connection, {
+        clienteId: cliente_id,
+        tipo: "saldo_a_favor_aplicado",
+        monto: saldoAFavorAplicado,
+        ventaId,
+        notas: "Aplicado automáticamente al cobrar esta venta",
+      });
+    }
+
+    if (montoCuentaCorrienteNum > 0) {
+      await registrarMovimientoCuentaCorriente(connection, {
+        clienteId: cliente_id,
+        tipo: "venta_fiado",
+        monto: montoCuentaCorrienteNum,
+        ventaId,
+      });
+    }
+
     await connection.commit();
 
     notificarN8N("venta_directa_creada", {
@@ -314,7 +378,11 @@ const createVentaDirecta = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Venta registrada exitosamente",
-      data: { id: ventaId, monto_total: montoCargado },
+      data: {
+        id: ventaId,
+        monto_total: montoCargado,
+        saldo_a_favor_aplicado: saldoAFavorAplicado,
+      },
     });
   } catch (error) {
     await connection.rollback();
