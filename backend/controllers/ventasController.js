@@ -1,6 +1,6 @@
 const { promisePool } = require("../config/database");
 const { applyDateRangeFilter } = require("../utils/dateRangeFilter");
-const { montoCoincide } = require("../utils/montoValidation");
+const { montoCoincide, parseMontoValidado } = require("../utils/montoValidation");
 const {
   getControlaStockMap,
   getPrecioTipoMap,
@@ -195,7 +195,23 @@ const createVentaDirecta = async (req, res) => {
       });
     }
 
-    const montoCuentaCorrienteNum = parseFloat(monto_cuenta_corriente) || 0;
+    const montoCuentaCorrienteNum = parseMontoValidado(monto_cuenta_corriente);
+    const efectivoValidado = parseMontoValidado(monto_efectivo);
+    const transferenciaValidada = parseMontoValidado(monto_transferencia);
+
+    // Mismo validador que registrarPagoCuentaCorriente -- sin esto, un monto
+    // no numérico o negativo llega crudo al INSERT y termina rompiendo por
+    // un constraint de la base en vez de devolver un 400 claro.
+    if (
+      montoCuentaCorrienteNum === null ||
+      efectivoValidado === null ||
+      transferenciaValidada === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: "Los montos deben ser números válidos y no negativos",
+      });
+    }
 
     // No existe "a cuenta" sin saber a quién se le fía -- lo mismo aplica al
     // reforzar en la base con chk_ventas_cuenta_corriente_requiere_cliente
@@ -214,15 +230,46 @@ const createVentaDirecta = async (req, res) => {
       0,
     );
 
-    const montoEsperado = sumaItems - parseFloat(descuento);
+    const descuentoNum = parseMontoValidado(descuento);
+    // El descuento no puede igualar ni superar el total de los ítems: eso
+    // dejaría montoEsperado en 0 (o negativo), permitiendo "cerrar" una
+    // venta sin ingreso real ni deuda registrada mientras igual se descuenta
+    // stock real. Regalos/promociones 100% gratuitas quedan fuera de este
+    // fix -- necesitarían un mecanismo explícito aparte.
+    if (descuentoNum === null || descuentoNum >= sumaItems) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "El descuento debe ser un número válido, no negativo, y menor al total de los productos",
+      });
+    }
+
+    const montoEsperado = sumaItems - descuentoNum;
 
     await connection.beginTransaction();
 
     // Si el cliente tiene saldo a favor, se aplica siempre automático (sin
     // opt-out -- así se acordó con el dueño): reduce lo que hay que cobrar
     // por efectivo/transferencia/cuenta antes de validar el monto cargado.
+    // El cliente se bloquea con FOR UPDATE ANTES de leer su saldo -- misma
+    // técnica que registrarPagoCuentaCorriente -- para que dos ventas
+    // concurrentes al mismo cliente no lean el mismo saldo a favor y lo
+    // apliquen dos veces: se serializan sobre esta fila hasta que la
+    // primera transacción haga commit o rollback.
     let saldoAFavorAplicado = 0;
     if (cliente_id) {
+      const [clientesLocked] = await connection.query(
+        "SELECT id, activo FROM clientes WHERE id = ? FOR UPDATE",
+        [cliente_id],
+      );
+      if (clientesLocked.length === 0 || !clientesLocked[0].activo) {
+        await connection.rollback();
+        return res.status(404).json({
+          success: false,
+          error: "El cliente no existe o está inactivo",
+        });
+      }
+
       const saldoActual = await calcularSaldoCliente(connection, cliente_id);
       const saldoAFavorDisponible = saldoActual < 0 ? -saldoActual : 0;
       saldoAFavorAplicado = Math.min(saldoAFavorDisponible, montoEsperado);
@@ -230,9 +277,7 @@ const createVentaDirecta = async (req, res) => {
 
     const montoAPagar = montoEsperado - saldoAFavorAplicado;
     const montoCargado =
-      parseFloat(monto_efectivo) +
-      parseFloat(monto_transferencia) +
-      montoCuentaCorrienteNum;
+      efectivoValidado + transferenciaValidada + montoCuentaCorrienteNum;
 
     if (!montoCoincide(montoCargado, montoAPagar)) {
       await connection.rollback();
@@ -260,10 +305,10 @@ const createVentaDirecta = async (req, res) => {
       `INSERT INTO ventas (tipo, monto_efectivo, monto_transferencia, monto_cuenta_corriente, descuento, cliente_id, cliente_nombre, cliente_telefono, notas)
        VALUES ('venta_directa', ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        monto_efectivo,
-        monto_transferencia,
+        efectivoValidado,
+        transferenciaValidada,
         montoCuentaCorrienteNum,
-        descuento,
+        descuentoNum,
         cliente_id || null,
         cliente_nombre || null,
         cliente_telefono || null,

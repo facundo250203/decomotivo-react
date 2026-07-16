@@ -25,7 +25,10 @@ const hace30Dias = () => {
 const hoyISO = () => new Date().toISOString().slice(0, 10);
 
 // ============================================
-// FACTURACIÓN EN EL TIEMPO (serie diaria)
+// FACTURACIÓN EN EL TIEMPO (serie diaria). Excluye tipo='pago_cuenta_corriente':
+// esa plata ya se contó como facturación en la venta_directa fiada original
+// (su monto_total incluye la porción a cuenta corriente) -- sumar también el
+// pago posterior duplicaría el ingreso.
 // ============================================
 const getFacturacionSerie = async (desde, hasta) => {
   const [rows] = await promisePool.query(
@@ -35,6 +38,7 @@ const getFacturacionSerie = async (desde, hasta) => {
       COALESCE(SUM(monto_total), 0) as total
      FROM ventas
      WHERE DATE(fecha) BETWEEN ? AND ?
+       AND tipo != 'pago_cuenta_corriente'
      GROUP BY DATE(fecha)
      ORDER BY fecha ASC`,
     [desde, hasta],
@@ -175,7 +179,10 @@ const getEfectividadOfertas = async (desde, hasta) => {
 // ============================================
 // TOP CLIENTES POR MONTO ACUMULADO (solo ventas con cliente registrado --
 // una venta de mostrador sin cliente asociado no se le puede atribuir a
-// nadie en particular).
+// nadie en particular). Excluye tipo='pago_cuenta_corriente': esa plata ya
+// se contó como facturación en la venta_directa fiada original (su
+// monto_total incluye la porción a cuenta corriente) -- sumar también el
+// pago posterior duplicaría el ingreso.
 // ============================================
 const getTopClientes = async (desde, hasta) => {
   const [rows] = await promisePool.query(
@@ -185,6 +192,7 @@ const getTopClientes = async (desde, hasta) => {
      FROM ventas v
      JOIN clientes cl ON cl.id = v.cliente_id
      WHERE DATE(v.fecha) BETWEEN ? AND ?
+       AND v.tipo != 'pago_cuenta_corriente'
      GROUP BY cl.id, cl.nombre, cl.apellido
      ORDER BY total_gastado DESC
      LIMIT 10`,

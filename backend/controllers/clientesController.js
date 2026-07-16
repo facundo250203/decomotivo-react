@@ -205,6 +205,9 @@ const updateCliente = async (req, res) => {
 
 // ============================================
 // ELIMINAR CLIENTE (SOFT DELETE)
+// No se puede desactivar un cliente con saldo distinto de cero: dejaría la
+// cuenta corriente huérfana (deuda que nunca se cobra, o saldo a favor que
+// nadie puede volver a aplicar). Debe saldarse antes.
 // ============================================
 const deleteCliente = async (req, res) => {
   try {
@@ -219,6 +222,19 @@ const deleteCliente = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, error: "Cliente no encontrado" });
+    }
+
+    const saldo = await calcularSaldoCliente(promisePool, id);
+    // Tolerancia de un centavo, misma que montoCoincide, para no bloquear
+    // por residuos de redondeo de punto flotante.
+    if (Math.abs(saldo) > 0.01) {
+      return res.status(400).json({
+        success: false,
+        error:
+          saldo > 0
+            ? `No se puede eliminar: el cliente tiene un saldo pendiente de $${saldo.toFixed(2)}. Saldá la deuda antes de eliminarlo.`
+            : `No se puede eliminar: el cliente tiene un saldo a favor de $${Math.abs(saldo).toFixed(2)}. Resolvé ese saldo antes de eliminarlo.`,
+      });
     }
 
     await promisePool.query("UPDATE clientes SET activo = false WHERE id = ?", [
@@ -318,14 +334,14 @@ const registrarPagoCuentaCorriente = async (req, res) => {
     await connection.beginTransaction();
 
     const [clientes] = await connection.query(
-      "SELECT id FROM clientes WHERE id = ? FOR UPDATE",
+      "SELECT id, activo FROM clientes WHERE id = ? FOR UPDATE",
       [id],
     );
-    if (clientes.length === 0) {
+    if (clientes.length === 0 || !clientes[0].activo) {
       await connection.rollback();
       return res
         .status(404)
-        .json({ success: false, error: "Cliente no encontrado" });
+        .json({ success: false, error: "El cliente no existe o está inactivo" });
     }
 
     const [ventaResult] = await connection.query(
