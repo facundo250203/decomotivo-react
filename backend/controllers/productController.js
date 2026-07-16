@@ -1,4 +1,22 @@
 const { promisePool } = require('../config/database');
+const { calcularStockCombo } = require('../utils/stockMovements');
+
+// Columnas + FROM/JOIN comunes a toda consulta de productos (pública o de
+// admin). Se comparte para no repetir esta misma lista de 20 columnas en
+// cada función por separado -- agregar/sacar una columna de producto se
+// hace en un solo lugar.
+const PRODUCTO_SELECT_FROM = `
+  p.id, p.categoria_id, p.titulo, p.slug, p.descripcion,
+  p.precio_valor, p.precio_oferta, p.precio_tipo, p.material, p.medidas, p.capacidad,
+  p.personalizable, p.colores, p.cantidad, p.stock_minimo, p.controla_stock,
+  p.tiempo_entrega_tipo, p.tiempo_entrega_dias, p.destacado, p.en_oferta, p.activo, p.visible_publico,
+  c.nombre as categoria_nombre, c.slug as categoria_slug,
+  i.id as imagen_id, i.url as imagen_url, i.cloudinary_id as imagen_cloudinary_id,
+  i.es_principal as imagen_es_principal, i.orden as imagen_orden, i.alt_text as imagen_alt_text
+  FROM productos p
+  LEFT JOIN categorias c ON p.categoria_id = c.id
+  LEFT JOIN imagenes_productos i ON p.id = i.producto_id
+`;
 
 // ============================================
 // FUNCIÓN HELPER: Estructurar producto con imágenes
@@ -15,8 +33,9 @@ const structureProductWithImages = (rows) => {
     
     // PRECIO - Estructura simplificada
     precio_valor: rows[0].precio_valor ? parseFloat(rows[0].precio_valor) : null,
+    precio_oferta: rows[0].precio_oferta ? parseFloat(rows[0].precio_oferta) : null,
     precio_tipo: rows[0].precio_tipo,
-    
+
     material: rows[0].material,
     medidas: rows[0].medidas,
     capacidad: rows[0].capacidad,
@@ -25,14 +44,18 @@ const structureProductWithImages = (rows) => {
     
     // CANTIDAD (stock)
     cantidad: rows[0].cantidad,
-    
+    stock_minimo: rows[0].stock_minimo,
+    controla_stock: Boolean(rows[0].controla_stock),
+
     // TIEMPO DE ENTREGA
     tiempo_entrega_tipo: rows[0].tiempo_entrega_tipo,
     tiempo_entrega_dias: rows[0].tiempo_entrega_dias,
     
     destacado: Boolean(rows[0].destacado),
+    en_oferta: Boolean(rows[0].en_oferta),
     activo: Boolean(rows[0].activo),
-    
+    visible_publico: Boolean(rows[0].visible_publico),
+
     categoria: {
       id: rows[0].categoria_id,
       nombre: rows[0].categoria_nombre,
@@ -60,43 +83,82 @@ const structureProductWithImages = (rows) => {
 };
 
 // ============================================
+// VARIANTES: adjuntar a una lista de productos ya estructurados
+// ============================================
+// Un producto con precio_tipo='variantes' no usa su propio precio_valor
+// (queda desactualizado a propósito) -- acá se recalcula como el mínimo
+// de las variantes activas, igual que mostraría un "desde" normal.
+const attachVariantes = async (products, { soloActivas = true } = {}) => {
+  const ids = products.map((p) => p.id);
+  if (ids.length === 0) return products;
+
+  let query = `
+    SELECT id, producto_id, nombre, precio_valor, cantidad, stock_minimo, orden, activo
+    FROM producto_variantes
+    WHERE producto_id IN (${ids.map(() => '?').join(',')})
+  `;
+  if (soloActivas) query += ' AND activo = true';
+  query += ' ORDER BY orden ASC, id ASC';
+
+  const [rows] = await promisePool.query(query, ids);
+
+  const variantesPorProducto = new Map();
+  rows.forEach((row) => {
+    if (!variantesPorProducto.has(row.producto_id)) {
+      variantesPorProducto.set(row.producto_id, []);
+    }
+    variantesPorProducto.get(row.producto_id).push({
+      id: row.id,
+      nombre: row.nombre,
+      precio_valor: parseFloat(row.precio_valor),
+      cantidad: row.cantidad,
+      stock_minimo: row.stock_minimo,
+      orden: row.orden,
+      activo: Boolean(row.activo),
+    });
+  });
+
+  products.forEach((product) => {
+    if (!product) return;
+    product.variantes = variantesPorProducto.get(product.id) || [];
+    if (product.precio_tipo === 'variantes') {
+      const preciosActivos = product.variantes
+        .filter((v) => v.activo)
+        .map((v) => v.precio_valor);
+      product.precio_valor =
+        preciosActivos.length > 0 ? Math.min(...preciosActivos) : null;
+    }
+  });
+
+  return products;
+};
+
+// ============================================
+// COMBOS: adjuntar a una lista de productos ya estructurados
+// ============================================
+// Un producto con precio_tipo='combo' no tiene stock propio (ver migración
+// 021) -- acá se pisa `cantidad` con el stock derivado de su receta, igual
+// que attachVariantes pisa precio_valor para 'variantes'. El frontend público
+// y el admin ya leen `cantidad` como el campo de stock disponible, así que
+// no hace falta tocarlos para que muestren el número correcto.
+const attachComboStock = async (products) => {
+  for (const product of products) {
+    if (!product || product.precio_tipo !== 'combo') continue;
+    product.cantidad = await calcularStockCombo(promisePool, product.id);
+  }
+  return products;
+};
+
+// ============================================
 // OBTENER TODOS LOS PRODUCTOS
 // ============================================
 const getAllProducts = async (req, res) => {
   try {
-    const { limit = 50, offset = 0, destacados, categoria_id } = req.query;
+    const { limit = 50, offset = 0, destacados, categoria_id, en_oferta, combo } = req.query;
 
     let query = `
-      SELECT 
-        p.id,
-        p.categoria_id,
-        p.titulo,
-        p.slug,
-        p.descripcion,
-        p.precio_valor,
-        p.precio_tipo,
-        p.material,
-        p.medidas,
-        p.capacidad,
-        p.personalizable,
-        p.colores,
-        p.cantidad,
-        p.tiempo_entrega_tipo,
-        p.tiempo_entrega_dias,
-        p.destacado,
-        p.activo,
-        c.nombre as categoria_nombre,
-        c.slug as categoria_slug,
-        i.id as imagen_id,
-        i.url as imagen_url,
-        i.cloudinary_id as imagen_cloudinary_id,
-        i.es_principal as imagen_es_principal,
-        i.orden as imagen_orden,
-        i.alt_text as imagen_alt_text
-      FROM productos p
-      LEFT JOIN categorias c ON p.categoria_id = c.id
-      LEFT JOIN imagenes_productos i ON p.id = i.producto_id
-      WHERE p.activo = true
+      SELECT ${PRODUCTO_SELECT_FROM}
+      WHERE p.activo = true AND p.visible_publico = true
     `;
 
     const params = [];
@@ -104,6 +166,20 @@ const getAllProducts = async (req, res) => {
     // Filtro por destacados
     if (destacados === 'true') {
       query += ` AND p.destacado = true`;
+    }
+
+    // Filtro por ofertas -- no es una categoría real, es un flag sobre el
+    // producto (ver migración 017), pero el front lo consume igual que un
+    // filtro de categoría para armar la página /ofertas.
+    if (en_oferta === 'true') {
+      query += ` AND p.en_oferta = true`;
+    }
+
+    // Filtro por combos -- tampoco es una categoría real, es precio_tipo=
+    // 'combo' (ver migración 021), consumido igual que en_oferta para armar
+    // la página /combos.
+    if (combo === 'true') {
+      query += ` AND p.precio_tipo = 'combo'`;
     }
 
     // Filtro por categoría
@@ -127,9 +203,11 @@ const getAllProducts = async (req, res) => {
       productsMap.get(row.id).push(row);
     });
 
-    const products = Array.from(productsMap.values()).map(productRows => 
+    const products = Array.from(productsMap.values()).map(productRows =>
       structureProductWithImages(productRows)
     );
+    await attachVariantes(products);
+    await attachComboStock(products);
 
     res.json({
       success: true,
@@ -154,36 +232,8 @@ const getProductBySlug = async (req, res) => {
     const { slug } = req.params;
 
     const [rows] = await promisePool.query(`
-      SELECT 
-        p.id,
-        p.categoria_id,
-        p.titulo,
-        p.slug,
-        p.descripcion,
-        p.precio_valor,
-        p.precio_tipo,
-        p.material,
-        p.medidas,
-        p.capacidad,
-        p.personalizable,
-        p.colores,
-        p.cantidad,
-        p.tiempo_entrega_tipo,
-        p.tiempo_entrega_dias,
-        p.destacado,
-        p.activo,
-        c.nombre as categoria_nombre,
-        c.slug as categoria_slug,
-        i.id as imagen_id,
-        i.url as imagen_url,
-        i.cloudinary_id as imagen_cloudinary_id,
-        i.es_principal as imagen_es_principal,
-        i.orden as imagen_orden,
-        i.alt_text as imagen_alt_text
-      FROM productos p
-      LEFT JOIN categorias c ON p.categoria_id = c.id
-      LEFT JOIN imagenes_productos i ON p.id = i.producto_id
-      WHERE p.slug = ? AND p.activo = true
+      SELECT ${PRODUCTO_SELECT_FROM}
+      WHERE p.slug = ? AND p.activo = true AND p.visible_publico = true
       ORDER BY i.es_principal DESC, i.orden ASC
     `, [slug]);
 
@@ -195,6 +245,8 @@ const getProductBySlug = async (req, res) => {
     }
 
     const product = structureProductWithImages(rows);
+    await attachVariantes([product]);
+    await attachComboStock([product]);
 
     res.json({
       success: true,
@@ -218,36 +270,8 @@ const getProductsByCategory = async (req, res) => {
     const { categoriaId } = req.params;
 
     const [rows] = await promisePool.query(`
-      SELECT 
-        p.id,
-        p.categoria_id,
-        p.titulo,
-        p.slug,
-        p.descripcion,
-        p.precio_valor,
-        p.precio_tipo,
-        p.material,
-        p.medidas,
-        p.capacidad,
-        p.personalizable,
-        p.colores,
-        p.cantidad,
-        p.tiempo_entrega_tipo,
-        p.tiempo_entrega_dias,
-        p.destacado,
-        p.activo,
-        c.nombre as categoria_nombre,
-        c.slug as categoria_slug,
-        i.id as imagen_id,
-        i.url as imagen_url,
-        i.cloudinary_id as imagen_cloudinary_id,
-        i.es_principal as imagen_es_principal,
-        i.orden as imagen_orden,
-        i.alt_text as imagen_alt_text
-      FROM productos p
-      LEFT JOIN categorias c ON p.categoria_id = c.id
-      LEFT JOIN imagenes_productos i ON p.id = i.producto_id
-      WHERE p.categoria_id = ? AND p.activo = true
+      SELECT ${PRODUCTO_SELECT_FROM}
+      WHERE p.categoria_id = ? AND p.activo = true AND p.visible_publico = true
       ORDER BY p.precio_valor ASC
     `, [categoriaId]);
 
@@ -260,9 +284,11 @@ const getProductsByCategory = async (req, res) => {
       productsMap.get(row.id).push(row);
     });
 
-    const products = Array.from(productsMap.values()).map(productRows => 
+    const products = Array.from(productsMap.values()).map(productRows =>
       structureProductWithImages(productRows)
     );
+    await attachVariantes(products);
+    await attachComboStock(products);
 
     res.json({
       success: true,
@@ -288,36 +314,8 @@ const getFeaturedProducts = async (req, res) => {
     const { limit = 6 } = req.query;
 
     const [rows] = await promisePool.query(`
-      SELECT 
-        p.id,
-        p.categoria_id,
-        p.titulo,
-        p.slug,
-        p.descripcion,
-        p.precio_valor,
-        p.precio_tipo,
-        p.material,
-        p.medidas,
-        p.capacidad,
-        p.personalizable,
-        p.colores,
-        p.cantidad,
-        p.tiempo_entrega_tipo,
-        p.tiempo_entrega_dias,
-        p.destacado,
-        p.activo,
-        c.nombre as categoria_nombre,
-        c.slug as categoria_slug,
-        i.id as imagen_id,
-        i.url as imagen_url,
-        i.cloudinary_id as imagen_cloudinary_id,
-        i.es_principal as imagen_es_principal,
-        i.orden as imagen_orden,
-        i.alt_text as imagen_alt_text
-      FROM productos p
-      LEFT JOIN categorias c ON p.categoria_id = c.id
-      LEFT JOIN imagenes_productos i ON p.id = i.producto_id
-      WHERE p.destacado = true AND p.activo = true
+      SELECT ${PRODUCTO_SELECT_FROM}
+      WHERE p.destacado = true AND p.activo = true AND p.visible_publico = true
       ORDER BY p.id DESC
       LIMIT ?
     `, [parseInt(limit)]);
@@ -331,9 +329,11 @@ const getFeaturedProducts = async (req, res) => {
       productsMap.get(row.id).push(row);
     });
 
-    const products = Array.from(productsMap.values()).map(productRows => 
+    const products = Array.from(productsMap.values()).map(productRows =>
       structureProductWithImages(productRows)
     );
+    await attachVariantes(products);
+    await attachComboStock(products);
 
     res.json({
       success: true,
@@ -358,36 +358,8 @@ const getProductById = async (req, res) => {
     const { id } = req.params;
 
     const [rows] = await promisePool.query(`
-      SELECT 
-        p.id,
-        p.categoria_id,
-        p.titulo,
-        p.slug,
-        p.descripcion,
-        p.precio_valor,
-        p.precio_tipo,
-        p.material,
-        p.medidas,
-        p.capacidad,
-        p.personalizable,
-        p.colores,
-        p.cantidad,
-        p.tiempo_entrega_tipo,
-        p.tiempo_entrega_dias,
-        p.destacado,
-        p.activo,
-        c.nombre as categoria_nombre,
-        c.slug as categoria_slug,
-        i.id as imagen_id,
-        i.url as imagen_url,
-        i.cloudinary_id as imagen_cloudinary_id,
-        i.es_principal as imagen_es_principal,
-        i.orden as imagen_orden,
-        i.alt_text as imagen_alt_text
-      FROM productos p
-      LEFT JOIN categorias c ON p.categoria_id = c.id
-      LEFT JOIN imagenes_productos i ON p.id = i.producto_id
-      WHERE p.id = ?
+      SELECT ${PRODUCTO_SELECT_FROM}
+      WHERE p.id = ? AND p.activo = true AND p.visible_publico = true
       ORDER BY i.es_principal DESC, i.orden ASC
     `, [id]);
 
@@ -399,6 +371,8 @@ const getProductById = async (req, res) => {
     }
 
     const product = structureProductWithImages(rows);
+    await attachVariantes([product]);
+    await attachComboStock([product]);
 
     res.json({
       success: true,
@@ -423,5 +397,8 @@ module.exports = {
   getProductsByCategory,
   getFeaturedProducts,
   getProductById,
-  structureProductWithImages
+  structureProductWithImages,
+  attachVariantes,
+  attachComboStock,
+  PRODUCTO_SELECT_FROM
 };

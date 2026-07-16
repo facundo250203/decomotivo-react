@@ -307,7 +307,11 @@ const ProductList = () => {
                                 />
                               ) : (
                                 <div className="h-16 w-16 bg-gris-claro rounded-lg flex items-center justify-center">
-                                  <i className="fas fa-image text-gris-medio"></i>
+                                  <img
+                                    src="/images/logo.png"
+                                    alt={product.titulo}
+                                    className="w-1/2 h-1/2 object-contain opacity-40"
+                                  />
                                 </div>
                               )}
                             </div>
@@ -351,6 +355,15 @@ const ProductList = () => {
                               <span className="inline-flex text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
                                 <i className="fas fa-edit mr-1"></i>
                                 Personal.
+                              </span>
+                            )}
+                            {product.visible_publico === false && (
+                              <span
+                                className="inline-flex text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-700"
+                                title="No aparece en la tienda pública; solo vendible por el admin"
+                              >
+                                <i className="fas fa-eye-slash mr-1"></i>
+                                Oculto
                               </span>
                             )}
                           </div>

@@ -1,6 +1,59 @@
 const { promisePool } = require("../config/database");
 const { cloudinary } = require("../config/cloudinary");
-const { structureProductWithImages } = require("./productController");
+const {
+  structureProductWithImages,
+  attachVariantes,
+  attachComboStock,
+  PRODUCTO_SELECT_FROM,
+} = require("./productController");
+const { parseBooleano } = require("../utils/parseBooleano");
+
+// Campos editables vía updateProduct. `activo` se deja afuera del set
+// dinámico habitual porque este endpoint sí lo maneja explícitamente (soft
+// delete y reactivación conviven en el mismo formulario de edición, a
+// diferencia de proveedores/clientes).
+const CAMPOS_EDITABLES_PRODUCTO = [
+  "categoria_id",
+  "titulo",
+  "slug",
+  "descripcion",
+  "precio_valor",
+  "precio_tipo",
+  "material",
+  "medidas",
+  "capacidad",
+  "personalizable",
+  "colores",
+  "cantidad",
+  "stock_minimo",
+  "controla_stock",
+  "tiempo_entrega_tipo",
+  "tiempo_entrega_dias",
+  "destacado",
+  "en_oferta",
+  "precio_oferta",
+  "activo",
+  "visible_publico",
+];
+
+// Una oferta solo tiene sentido sobre un precio de lista fijo: "desde" y
+// "consultar" no tienen un precio_valor real contra el cual tachar. Devuelve
+// un mensaje de error, o null si está todo bien.
+const validarOferta = ({ en_oferta, precio_tipo, precio_valor, precio_oferta }) => {
+  if (!en_oferta) return null;
+
+  if (precio_tipo !== "fijo") {
+    return "Solo un producto con precio fijo puede estar en oferta";
+  }
+  if (!precio_valor || !precio_oferta) {
+    return "Para poner un producto en oferta hace falta el precio normal y el precio de oferta";
+  }
+  if (parseFloat(precio_oferta) >= parseFloat(precio_valor)) {
+    return "El precio de oferta debe ser menor al precio normal";
+  }
+  return null;
+};
+
 // ============================================
 // CREAR PRODUCTO
 // ============================================
@@ -19,10 +72,27 @@ const createProduct = async (req, res) => {
       personalizable,
       colores,
       cantidad,
+      stock_minimo,
+      controla_stock,
       tiempo_entrega_tipo,
       tiempo_entrega_dias,
       destacado,
+      en_oferta,
+      precio_oferta,
+      visible_publico,
     } = req.body;
+
+    // controla_stock por defecto es true (la mayoría del catálogo controla
+    // stock); solo queda en false si se manda explícitamente
+    const controlaStockFinal = controla_stock === undefined ? 1 : parseBooleano(controla_stock);
+
+    // visible_publico por defecto es true (se ve en la tienda pública);
+    // solo queda oculto si se manda explícitamente en false. Es distinto de
+    // `activo`: un producto puede existir y venderse por el admin sin
+    // aparecer en la tienda.
+    const visiblePublicoFinal = visible_publico === undefined ? 1 : parseBooleano(visible_publico);
+
+    const enOfertaFinal = en_oferta === undefined ? 0 : parseBooleano(en_oferta);
 
     // Validar campos requeridos
     if (!categoria_id || !titulo || !slug) {
@@ -33,26 +103,37 @@ const createProduct = async (req, res) => {
     }
 
     // Validar precio_tipo
-    if (precio_tipo && !["fijo", "desde", "consultar"].includes(precio_tipo)) {
+    if (precio_tipo && !["fijo", "desde", "consultar", "variantes", "combo"].includes(precio_tipo)) {
       return res.status(400).json({
         success: false,
-        error: "precio_tipo debe ser: fijo, desde, o consultar",
+        error: "precio_tipo debe ser: fijo, desde, consultar, variantes o combo",
       });
+    }
+
+    const errorOferta = validarOferta({
+      en_oferta: enOfertaFinal,
+      precio_tipo: precio_tipo || "fijo",
+      precio_valor,
+      precio_oferta,
+    });
+    if (errorOferta) {
+      return res.status(400).json({ success: false, error: errorOferta });
     }
 
     // Insertar producto
     const [result] = await promisePool.query(
       `INSERT INTO productos (
-        categoria_id, titulo, slug, descripcion, precio_valor, precio_tipo,
+        categoria_id, titulo, slug, descripcion, precio_valor, precio_oferta, precio_tipo,
         material, medidas, capacidad, personalizable, colores, cantidad,
-        tiempo_entrega_tipo, tiempo_entrega_dias, destacado, activo
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true)`,
+        stock_minimo, controla_stock, tiempo_entrega_tipo, tiempo_entrega_dias, destacado, en_oferta, activo, visible_publico
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?)`,
       [
         categoria_id,
         titulo,
         slug,
         descripcion || null,
         precio_valor || null,
+        enOfertaFinal ? precio_oferta : null,
         precio_tipo || "fijo",
         material || null,
         medidas || null,
@@ -60,9 +141,13 @@ const createProduct = async (req, res) => {
         personalizable || false,
         colores || null,
         cantidad || 0,
+        stock_minimo || 0,
+        controlaStockFinal,
         tiempo_entrega_tipo || "dias",
         tiempo_entrega_dias || 3,
         destacado || false,
+        enOfertaFinal,
+        visiblePublicoFinal,
       ],
     );
 
@@ -107,25 +192,24 @@ const updateProduct = async (req, res) => {
     const updates = req.body;
 
     if (updates.personalizable !== undefined) {
-      updates.personalizable =
-        updates.personalizable === true ||
-        updates.personalizable === "true" ||
-        updates.personalizable === "Sí"
-          ? 1
-          : 0;
+      updates.personalizable = parseBooleano(updates.personalizable, ["Sí"]);
     }
     if (updates.destacado !== undefined) {
-      updates.destacado =
-        updates.destacado === true || updates.destacado === "true" ? 1 : 0;
+      updates.destacado = parseBooleano(updates.destacado);
     }
     if (updates.activo !== undefined) {
-      updates.activo =
-        updates.activo === true || updates.activo === "true" ? 1 : 0;
+      updates.activo = parseBooleano(updates.activo);
+    }
+    if (updates.visible_publico !== undefined) {
+      updates.visible_publico = parseBooleano(updates.visible_publico);
+    }
+    if (updates.en_oferta !== undefined) {
+      updates.en_oferta = parseBooleano(updates.en_oferta);
     }
 
     // Verificar que el producto existe
     const [products] = await promisePool.query(
-      "SELECT id FROM productos WHERE id = ?",
+      "SELECT id, precio_tipo, precio_valor, precio_oferta, en_oferta FROM productos WHERE id = ?",
       [id],
     );
 
@@ -139,15 +223,44 @@ const updateProduct = async (req, res) => {
     // Validar precio_tipo si viene en el update
     if (
       updates.precio_tipo &&
-      !["fijo", "desde", "consultar"].includes(updates.precio_tipo)
+      !["fijo", "desde", "consultar", "variantes", "combo"].includes(updates.precio_tipo)
     ) {
       return res.status(400).json({
         success: false,
-        error: "precio_tipo debe ser: fijo, desde, o consultar",
+        error: "precio_tipo debe ser: fijo, desde, consultar, variantes o combo",
       });
     }
 
-    // Construir query dinámico
+    // La validación de oferta corre sobre el estado FINAL del producto
+    // (valores nuevos si vienen en el update, si no los que ya tenía en la
+    // DB) -- un update parcial que solo cambia el título no debería poder
+    // pisar una oferta ya válida ni dejarla en un estado inconsistente.
+    const productoActual = products[0];
+    const errorOferta = validarOferta({
+      en_oferta:
+        updates.en_oferta !== undefined
+          ? updates.en_oferta
+          : productoActual.en_oferta,
+      precio_tipo:
+        updates.precio_tipo !== undefined
+          ? updates.precio_tipo
+          : productoActual.precio_tipo,
+      precio_valor:
+        updates.precio_valor !== undefined
+          ? updates.precio_valor
+          : productoActual.precio_valor,
+      precio_oferta:
+        updates.precio_oferta !== undefined
+          ? updates.precio_oferta
+          : productoActual.precio_oferta,
+    });
+    if (errorOferta) {
+      return res.status(400).json({ success: false, error: errorOferta });
+    }
+
+    // Construir query dinámico. req.body ya viene filtrado por el
+    // middleware sanitizeBody (ver routes/admin.js) a solo los campos de
+    // CAMPOS_EDITABLES_PRODUCTO.
     const fields = Object.keys(updates);
     const values = Object.values(updates);
 
@@ -379,19 +492,7 @@ const getAllProductsAdmin = async (req, res) => {
     const { categoria_id } = req.query;
 
     let query = `
-      SELECT 
-        p.id, p.categoria_id, p.titulo, p.slug, p.descripcion,
-        p.precio_valor, p.precio_tipo, p.material, p.medidas,
-        p.capacidad, p.personalizable, p.colores, p.cantidad,
-        p.tiempo_entrega_tipo, p.tiempo_entrega_dias, p.destacado, p.activo,
-        c.nombre as categoria_nombre, c.slug as categoria_slug,
-        i.id as imagen_id, i.url as imagen_url,
-        i.cloudinary_id as imagen_cloudinary_id,
-        i.es_principal as imagen_es_principal,
-        i.orden as imagen_orden, i.alt_text as imagen_alt_text
-      FROM productos p
-      LEFT JOIN categorias c ON p.categoria_id = c.id
-      LEFT JOIN imagenes_productos i ON p.id = i.producto_id
+      SELECT ${PRODUCTO_SELECT_FROM}
       WHERE 1=1
     `;
 
@@ -405,8 +506,6 @@ const getAllProductsAdmin = async (req, res) => {
     query += ` ORDER BY p.id DESC`;
 
     const [rows] = await promisePool.query(query, params);
-    const ids = [...new Set(rows.map((r) => r.id))];
-    console.log("IDs únicos:", ids.length, ids);
     const productsMap = new Map();
     rows.forEach((row) => {
       if (!productsMap.has(row.id)) productsMap.set(row.id, []);
@@ -416,12 +515,8 @@ const getAllProductsAdmin = async (req, res) => {
     const products = Array.from(productsMap.values()).map((productRows) =>
       structureProductWithImages(productRows),
     );
-    console.log(
-      "Total productos en DB:",
-      rows.length,
-      "| Agrupados:",
-      products.length,
-    );
+    await attachVariantes(products, { soloActivas: false });
+    await attachComboStock(products);
 
     res.json({ success: true, count: products.length, data: products });
   } catch (error) {
@@ -437,6 +532,43 @@ const getAllProductsAdmin = async (req, res) => {
 };
 
 // ============================================
+// OBTENER PRODUCTO POR ID (admin: sin filtro de activo/visible_publico,
+// para poder ver y editar un producto oculto o inactivo)
+// ============================================
+const getProductByIdAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await promisePool.query(
+      `SELECT ${PRODUCTO_SELECT_FROM}
+      WHERE p.id = ?
+      ORDER BY i.es_principal DESC, i.orden ASC`,
+      [id],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Producto no encontrado",
+      });
+    }
+
+    const product = structureProductWithImages(rows);
+    await attachVariantes([product], { soloActivas: false });
+    await attachComboStock([product]);
+
+    res.json({ success: true, data: product });
+  } catch (error) {
+    console.error("Error obteniendo producto admin:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al obtener el producto",
+      message: error.message,
+    });
+  }
+};
+
+// ============================================
 // EXPORTAR
 // ============================================
 module.exports = {
@@ -446,4 +578,6 @@ module.exports = {
   uploadProductImage,
   deleteProductImage,
   getAllProductsAdmin,
+  getProductByIdAdmin,
+  CAMPOS_EDITABLES_PRODUCTO,
 };

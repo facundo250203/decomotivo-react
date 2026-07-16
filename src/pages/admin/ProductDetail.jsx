@@ -1,12 +1,14 @@
 // src/pages/admin/ProductDetail.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { productsAPI } from '../../services/api';
+import { adminProductsAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import AdminLayout from '../../components/admin/AdminLayout';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -18,8 +20,8 @@ const ProductDetail = () => {
   const fetchProduct = async () => {
     try {
       setLoading(true);
-      const response = await productsAPI.getById(id);
-      
+      const response = await adminProductsAPI.getById(id, token);
+
       if (response.success && response.data) {
         setProduct(response.data);
         // Seleccionar imagen principal o la primera
@@ -133,7 +135,11 @@ const ProductDetail = () => {
                 />
               ) : (
                 <div className="w-full h-64 bg-gris-claro rounded-lg flex items-center justify-center">
-                  <i className="fas fa-image text-4xl text-gris-medio"></i>
+                  <img
+                    src="/images/logo.png"
+                    alt={product.titulo}
+                    className="w-1/2 h-1/2 object-contain opacity-40"
+                  />
                 </div>
               )}
             </div>
