@@ -11,6 +11,15 @@ const productRoutes = require("./routes/products");
 const categoryRoutes = require("./routes/categories");
 const adminRoutes = require("./routes/admin");
 const orderRoutes = require("./routes/orders");
+const stockRoutes = require("./routes/stock");
+const ventasRoutes = require("./routes/ventas");
+const proveedoresRoutes = require("./routes/proveedores");
+const comprasRoutes = require("./routes/compras");
+const cajaRoutes = require("./routes/caja");
+const clientesRoutes = require("./routes/clientes");
+const gastosRoutes = require("./routes/gastos");
+const reportesRoutes = require("./routes/reportes");
+const n8nRoutes = require("./routes/n8n");
 
 const app = express();
 
@@ -32,6 +41,15 @@ app.use("/api/productos", productRoutes);
 app.use("/api/categorias", categoryRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/pedidos", orderRoutes);
+app.use("/api/stock", stockRoutes);
+app.use("/api/ventas", ventasRoutes);
+app.use("/api/proveedores", proveedoresRoutes);
+app.use("/api/compras", comprasRoutes);
+app.use("/api/caja", cajaRoutes);
+app.use("/api/clientes", clientesRoutes);
+app.use("/api/gastos", gastosRoutes);
+app.use("/api/reportes", reportesRoutes);
+app.use("/api/n8n", n8nRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
