@@ -34,7 +34,9 @@ const VentaDirectaForm = () => {
   // es_manual + descripcion_manual: ítem no catalogado (ver migración 024).
   // Comparten precio_unitario/cantidad con los ítems de catálogo -- solo al
   // armar el payload en handleSubmit se traducen a producto_id o a
-  // descripcion_manual/precio_manual según corresponda.
+  // descripcion_manual/precio_manual según corresponda. extras (ver
+  // migración 025): array anidado, aplica igual a líneas de catálogo y
+  // manuales -- no descuenta stock ni cuando referencia un producto real.
   const itemVacio = () => ({
     producto_id: "",
     producto_variante_id: "",
@@ -42,6 +44,19 @@ const VentaDirectaForm = () => {
     cantidad: 1,
     es_manual: false,
     descripcion_manual: "",
+    extras: [],
+  });
+
+  // Un extra cuelga de una línea (ver migración 025): producto real del
+  // catálogo (precio autocompletado pero editable) o texto libre + precio a
+  // mano -- siempre agregado a mano con el botón "Agregar extra", nunca
+  // automático.
+  const extraVacio = () => ({
+    producto_id: "",
+    descripcion: "",
+    precio: 0,
+    cantidad: 1,
+    es_manual: false,
   });
 
   const [items, setItems] = useState([itemVacio()]);
@@ -158,10 +173,66 @@ const VentaDirectaForm = () => {
     }
   };
 
+  const agregarExtra = (itemIndex) => {
+    const newItems = [...items];
+    newItems[itemIndex] = {
+      ...newItems[itemIndex],
+      extras: [...(newItems[itemIndex].extras || []), extraVacio()],
+    };
+    setItems(newItems);
+  };
+
+  const handleExtraChange = (itemIndex, extraIndex, field, value) => {
+    const newItems = [...items];
+    const newExtras = [...newItems[itemIndex].extras];
+    newExtras[extraIndex] = { ...newExtras[extraIndex], [field]: value };
+
+    if (field === "producto_id") {
+      const producto = productos.find((p) => p.id === parseInt(value));
+      if (producto && producto.precio_tipo !== "variantes" && producto.precio_valor) {
+        newExtras[extraIndex].precio = producto.precio_valor;
+      }
+    }
+
+    newItems[itemIndex] = { ...newItems[itemIndex], extras: newExtras };
+    setItems(newItems);
+  };
+
+  // Igual que toggleItemManual pero un nivel más abajo -- cambia un extra
+  // entre "producto de catálogo" y "texto libre" sin perder precio/cantidad.
+  const toggleExtraManual = (itemIndex, extraIndex) => {
+    const newItems = [...items];
+    const newExtras = [...newItems[itemIndex].extras];
+    const extra = newExtras[extraIndex];
+    newExtras[extraIndex] = extra.es_manual
+      ? { ...extra, es_manual: false, descripcion: "", producto_id: "" }
+      : { ...extra, es_manual: true, producto_id: "" };
+    newItems[itemIndex] = { ...newItems[itemIndex], extras: newExtras };
+    setItems(newItems);
+  };
+
+  const eliminarExtra = (itemIndex, extraIndex) => {
+    const newItems = [...items];
+    newItems[itemIndex] = {
+      ...newItems[itemIndex],
+      extras: newItems[itemIndex].extras.filter((_, i) => i !== extraIndex),
+    };
+    setItems(newItems);
+  };
+
+  const calcularSubtotalExtras = (item) =>
+    (item.extras || []).reduce(
+      (sum, extra) =>
+        sum + parseFloat(extra.precio || 0) * parseInt(extra.cantidad || 0),
+      0,
+    );
+
   const calcularSumaItems = () => {
     return items.reduce((sum, item) => {
       return (
-        sum + parseFloat(item.precio_unitario || 0) * parseInt(item.cantidad || 0)
+        sum +
+        parseFloat(item.precio_unitario || 0) * parseInt(item.cantidad || 0) +
+        calcularSubtotalExtras(item)
       );
     }, 0);
   };
@@ -233,6 +304,30 @@ const VentaDirectaForm = () => {
       return;
     }
 
+    // Igual que itemsValidos: un extra a medio completar (borrador vacío) se
+    // descarta en silencio en vez de bloquear el submit -- el vendedor puede
+    // haber abierto "Agregar extra" y arrepentirse sin tener que borrarlo a mano.
+    const construirExtrasPayload = (item) =>
+      (item.extras || [])
+        .filter((extra) =>
+          extra.es_manual
+            ? extra.descripcion.trim() && extra.precio > 0 && extra.cantidad > 0
+            : extra.producto_id && extra.precio > 0 && extra.cantidad > 0,
+        )
+        .map((extra) =>
+          extra.es_manual
+            ? {
+                descripcion: extra.descripcion.trim(),
+                precio: parseFloat(extra.precio),
+                cantidad: parseInt(extra.cantidad),
+              }
+            : {
+                producto_id: parseInt(extra.producto_id),
+                precio: parseFloat(extra.precio),
+                cantidad: parseInt(extra.cantidad),
+              },
+        );
+
     try {
       setLoading(true);
       const ventaData = {
@@ -250,6 +345,7 @@ const VentaDirectaForm = () => {
                 descripcion_manual: item.descripcion_manual.trim(),
                 precio_manual: parseFloat(item.precio_unitario),
                 cantidad: parseInt(item.cantidad),
+                extras: construirExtrasPayload(item),
               }
             : {
                 producto_id: parseInt(item.producto_id),
@@ -258,6 +354,7 @@ const VentaDirectaForm = () => {
                   : null,
                 precio_unitario: parseFloat(item.precio_unitario),
                 cantidad: parseInt(item.cantidad),
+                extras: construirExtrasPayload(item),
               },
         ),
       };
@@ -594,6 +691,173 @@ const VentaDirectaForm = () => {
                                   parseInt(item.cantidad || 0),
                               )}
                             </span>
+                          </div>
+
+                          {/* Extras (ver migración 025): siempre agregados a
+                              mano, nunca automáticos -- cuelgan de esta línea
+                              sin importar si es de catálogo o manual. */}
+                          <div className="md:col-span-2 border-t pt-3 mt-1">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                Extras
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => agregarExtra(index)}
+                                className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors"
+                              >
+                                <i className="fas fa-plus mr-1"></i>
+                                Agregar extra
+                              </button>
+                            </div>
+
+                            {(item.extras || []).length === 0 ? (
+                              <p className="text-xs text-gray-400">
+                                Sin extras en esta línea.
+                              </p>
+                            ) : (
+                              <div className="space-y-2">
+                                {item.extras.map((extra, extraIndex) => (
+                                  <div
+                                    key={extraIndex}
+                                    className="bg-gray-50 border rounded-lg p-3"
+                                  >
+                                    <div className="flex justify-between items-center mb-2">
+                                      <span className="text-xs text-gray-500">
+                                        Extra {extraIndex + 1}
+                                      </span>
+                                      <div className="flex items-center gap-3">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            toggleExtraManual(index, extraIndex)
+                                          }
+                                          className="text-primary hover:underline text-xs"
+                                        >
+                                          {extra.es_manual
+                                            ? "Buscar producto"
+                                            : "Texto libre"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            eliminarExtra(index, extraIndex)
+                                          }
+                                          className="text-red-600 hover:text-red-800 text-xs"
+                                        >
+                                          <i className="fas fa-trash"></i>
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                      {extra.es_manual ? (
+                                        <div className="md:col-span-3">
+                                          <input
+                                            type="text"
+                                            value={extra.descripcion}
+                                            onChange={(e) =>
+                                              handleExtraChange(
+                                                index,
+                                                extraIndex,
+                                                "descripcion",
+                                                e.target.value,
+                                              )
+                                            }
+                                            placeholder="Ej: grabado personalizado..."
+                                            className="w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary"
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className="md:col-span-3">
+                                          <ProductSearchSelect
+                                            productos={productos}
+                                            value={extra.producto_id}
+                                            onChange={(id) =>
+                                              handleExtraChange(
+                                                index,
+                                                extraIndex,
+                                                "producto_id",
+                                                id,
+                                              )
+                                            }
+                                            placeholder="Buscar producto para el extra..."
+                                            getOptionLabel={(prod) =>
+                                              `${prod.titulo}${
+                                                prod.precio_valor
+                                                  ? ` - ${formatPrecio(prod.precio_valor)}`
+                                                  : ""
+                                              }`
+                                            }
+                                          />
+                                        </div>
+                                      )}
+
+                                      <div>
+                                        <label className="block text-xs text-gray-500 mb-1">
+                                          Precio
+                                        </label>
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          value={extra.precio}
+                                          onChange={(e) =>
+                                            handleExtraChange(
+                                              index,
+                                              extraIndex,
+                                              "precio",
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs text-gray-500 mb-1">
+                                          Cantidad
+                                        </label>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={extra.cantidad}
+                                          onChange={(e) =>
+                                            handleExtraChange(
+                                              index,
+                                              extraIndex,
+                                              "cantidad",
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary"
+                                        />
+                                      </div>
+                                      <div className="flex items-end justify-end text-sm text-gray-600">
+                                        {formatPrecio(
+                                          parseFloat(extra.precio || 0) *
+                                            parseInt(extra.cantidad || 0),
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {(item.extras || []).length > 0 && (
+                              <div className="text-right mt-2">
+                                <span className="text-sm text-gray-600">
+                                  Total línea (con extras):{" "}
+                                </span>
+                                <span className="font-semibold">
+                                  {formatPrecio(
+                                    parseFloat(item.precio_unitario || 0) *
+                                      parseInt(item.cantidad || 0) +
+                                      calcularSubtotalExtras(item),
+                                  )}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

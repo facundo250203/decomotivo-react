@@ -138,6 +138,34 @@ const getVentaById = async (req, res) => {
       [id],
     );
 
+    // Extras (ver migración 025) se traen en una segunda consulta -- uno o
+    // más por venta_item -- y se anidan por venta_item_id más abajo, en vez
+    // de un JOIN directo contra venta_items, para no multiplicar filas de
+    // items cuando una línea tiene más de un extra.
+    const itemIds = items.map((item) => item.id);
+    let extrasRows = [];
+    if (itemIds.length > 0) {
+      const [rows] = await promisePool.query(
+        `SELECT vie.*, COALESCE(pr.titulo, vie.descripcion) as extra_titulo
+         FROM venta_item_extras vie
+         LEFT JOIN productos pr ON pr.id = vie.producto_id
+         WHERE vie.venta_item_id IN (${itemIds.map(() => "?").join(",")})`,
+        itemIds,
+      );
+      extrasRows = rows;
+    }
+
+    const extrasPorItem = new Map();
+    for (const extra of extrasRows) {
+      const lista = extrasPorItem.get(extra.venta_item_id) || [];
+      lista.push({
+        ...extra,
+        precio: parseFloat(extra.precio),
+        subtotal: parseFloat(extra.subtotal),
+      });
+      extrasPorItem.set(extra.venta_item_id, lista);
+    }
+
     const venta = ventas[0];
 
     res.json({
@@ -161,6 +189,7 @@ const getVentaById = async (req, res) => {
           // acá en vez de guardarse en la base para que el frontend no
           // dependa de inferirlo de otra forma.
           es_manual: item.producto_id === null,
+          extras: extrasPorItem.get(item.id) || [],
         })),
       },
     });
@@ -234,6 +263,58 @@ const createVentaDirecta = async (req, res) => {
       });
     }
 
+    // Extras (ver migración 025): un array opcional anidado dentro de cada
+    // ítem, sin importar si ese ítem es de catálogo o manual -- cuelgan del
+    // venta_item, no del producto. Misma validación en espíritu que un ítem:
+    // o un producto real de catálogo (precio autocompletado en el front pero
+    // editable, así que igual se valida acá) o texto libre + precio a mano.
+    // Nunca ninguno de los dos, nunca los dos a la vez -- mismo patrón que
+    // chk_venta_items_producto_o_manual, reforzado además por el CHECK de la
+    // migración 025 por si algo bypasea este validador.
+    const normalizarExtras = (extrasRaw) => {
+      const extras = [];
+      for (const extra of Array.isArray(extrasRaw) ? extrasRaw : []) {
+        const cantidadExtra =
+          extra.cantidad !== undefined ? parseInt(extra.cantidad) : 1;
+        if (!Number.isInteger(cantidadExtra) || cantidadExtra <= 0) {
+          return { error: "Cada extra debe tener una cantidad entera mayor a 0" };
+        }
+
+        if (extra.producto_id) {
+          const precioExtra = parseMontoValidado(extra.precio);
+          if (precioExtra === null || precioExtra <= 0) {
+            return {
+              error: "Cada extra de catálogo debe tener un precio válido mayor a 0",
+            };
+          }
+          extras.push({
+            productoId: extra.producto_id,
+            descripcion: null,
+            precio: precioExtra,
+            cantidad: cantidadExtra,
+          });
+        } else {
+          const descripcionExtra = (extra.descripcion || "").trim();
+          const precioExtra = parseMontoValidado(extra.precio);
+          if (!descripcionExtra) {
+            return { error: "Cada extra manual debe tener una descripción" };
+          }
+          if (precioExtra === null || precioExtra <= 0) {
+            return {
+              error: "Cada extra manual debe tener un precio válido mayor a 0",
+            };
+          }
+          extras.push({
+            productoId: null,
+            descripcion: descripcionExtra,
+            precio: precioExtra,
+            cantidad: cantidadExtra,
+          });
+        }
+      }
+      return { extras };
+    };
+
     // Normaliza cada ítem a uno de dos tipos ANTES de tocar la base: de
     // catálogo (producto_id) o manual/no catalogado (descripcion_manual +
     // precio_manual, ver migración 024) -- un ítem manual no referencia
@@ -251,6 +332,11 @@ const createVentaDirecta = async (req, res) => {
         });
       }
 
+      const { error: extrasError, extras } = normalizarExtras(item.extras);
+      if (extrasError) {
+        return res.status(400).json({ success: false, error: extrasError });
+      }
+
       if (item.producto_id) {
         const precioUnitario = parseFloat(item.precio_unitario);
         if (!Number.isFinite(precioUnitario) || precioUnitario <= 0) {
@@ -265,6 +351,7 @@ const createVentaDirecta = async (req, res) => {
           productoVarianteId: item.producto_variante_id || null,
           cantidad,
           precioUnitario,
+          extras,
         });
       } else {
         const descripcionManual = (item.descripcion_manual || "").trim();
@@ -287,14 +374,21 @@ const createVentaDirecta = async (req, res) => {
           precioManual,
           cantidad,
           precioUnitario: precioManual,
+          extras,
         });
       }
     }
 
-    const sumaItems = itemsNormalizados.reduce(
-      (acc, item) => acc + item.precioUnitario * item.cantidad,
-      0,
-    );
+    // sumaItems pliega el precio de cada extra (precio * cantidad) sobre el
+    // total de su línea padre -- así el total/montoEsperado/montoCoincide de
+    // más abajo ya cubre los extras sin ningún caso especial.
+    const sumaItems = itemsNormalizados.reduce((acc, item) => {
+      const sumaExtras = item.extras.reduce(
+        (accExtra, extra) => accExtra + extra.precio * extra.cantidad,
+        0,
+      );
+      return acc + item.precioUnitario * item.cantidad + sumaExtras;
+    }, 0);
 
     const descuentoNum = parseMontoValidado(descuento);
     // El descuento no puede igualar ni superar el total de los ítems: eso
@@ -399,10 +493,12 @@ const createVentaDirecta = async (req, res) => {
     const precioTipoMap = await getPrecioTipoMap(connection, productoIds);
 
     for (const item of itemsNormalizados) {
+      let ventaItemId;
+
       if (item.esManual) {
         // Ítem no catalogado (ver migración 024): ni stock ni
         // controla_stock aplican porque no hay producto real detrás.
-        await connection.query(
+        const [itemResult] = await connection.query(
           `INSERT INTO venta_items (venta_id, producto_id, producto_variante_id, descripcion_manual, precio_manual, cantidad, precio_unitario)
            VALUES (?, NULL, NULL, ?, ?, ?, ?)`,
           [
@@ -413,20 +509,39 @@ const createVentaDirecta = async (req, res) => {
             item.precioUnitario,
           ],
         );
-        continue;
+        ventaItemId = itemResult.insertId;
+      } else {
+        const [itemResult] = await connection.query(
+          `INSERT INTO venta_items (venta_id, producto_id, producto_variante_id, cantidad, precio_unitario)
+           VALUES (?, ?, ?, ?, ?)`,
+          [
+            ventaId,
+            item.productoId,
+            item.productoVarianteId,
+            item.cantidad,
+            item.precioUnitario,
+          ],
+        );
+        ventaItemId = itemResult.insertId;
       }
 
-      await connection.query(
-        `INSERT INTO venta_items (venta_id, producto_id, producto_variante_id, cantidad, precio_unitario)
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          ventaId,
-          item.productoId,
-          item.productoVarianteId,
-          item.cantidad,
-          item.precioUnitario,
-        ],
-      );
+      // Extras (ver migración 025): cuelgan de este venta_item recién
+      // insertado sin importar si la línea es de catálogo o manual. Un extra
+      // que referencia un producto real NO descuenta su stock -- se lo
+      // trata como un ajuste de precio/descripción sobre la línea, no como
+      // una segunda venta con movimiento de inventario propio (ver decisión
+      // en la migración 025).
+      for (const extra of item.extras) {
+        await connection.query(
+          `INSERT INTO venta_item_extras (venta_item_id, producto_id, descripcion, precio, cantidad)
+           VALUES (?, ?, ?, ?, ?)`,
+          [ventaItemId, extra.productoId || null, extra.descripcion, extra.precio, extra.cantidad],
+        );
+      }
+
+      if (item.esManual) {
+        continue;
+      }
 
       if (precioTipoMap.get(parseInt(item.productoId)) === "combo") {
         const { ok } = await aplicarMovimientoStockCombo(connection, {
