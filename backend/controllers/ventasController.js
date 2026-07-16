@@ -483,14 +483,34 @@ const createVentaDirecta = async (req, res) => {
     // participan del descuento ni del movimiento -- solo se registra la
     // venta como ingreso. Los ítems manuales quedan afuera de este mapa: no
     // tienen producto_id, así que directamente no entran al loop de stock.
+    // Un extra que referencia un producto real de catálogo DESCUENTA stock
+    // igual que un ítem normal (confirmado por el dueño del negocio: es una
+    // unidad real que sale del inventario), así que sus producto_id entran
+    // a la misma unión de IDs para no quedar con controlaStockMap/
+    // precioTipoMap en `undefined` y caer mal en las comparaciones de abajo.
     const productoIds = itemsNormalizados
       .filter((item) => !item.esManual)
       .map((item) => item.productoId);
-    const controlaStockMap = await getControlaStockMap(connection, productoIds);
+    const extraProductoIds = itemsNormalizados.flatMap((item) =>
+      item.extras
+        .filter((extra) => extra.productoId)
+        .map((extra) => extra.productoId),
+    );
+    const todosLosProductoIds = [
+      ...new Set([...productoIds, ...extraProductoIds]),
+    ];
+    const controlaStockMap = await getControlaStockMap(
+      connection,
+      todosLosProductoIds,
+    );
     // Un ítem puede ser un combo (precio_tipo='combo'): no tiene stock
     // propio, así que en vez del descuento simple se descuenta su receta
-    // completa (ver aplicarMovimientoStockCombo).
-    const precioTipoMap = await getPrecioTipoMap(connection, productoIds);
+    // completa (ver aplicarMovimientoStockCombo). Mismo criterio para un
+    // extra que referencia un combo.
+    const precioTipoMap = await getPrecioTipoMap(
+      connection,
+      todosLosProductoIds,
+    );
 
     for (const item of itemsNormalizados) {
       let ventaItemId;
@@ -527,16 +547,62 @@ const createVentaDirecta = async (req, res) => {
 
       // Extras (ver migración 025): cuelgan de este venta_item recién
       // insertado sin importar si la línea es de catálogo o manual. Un extra
-      // que referencia un producto real NO descuenta su stock -- se lo
-      // trata como un ajuste de precio/descripción sobre la línea, no como
-      // una segunda venta con movimiento de inventario propio (ver decisión
-      // en la migración 025).
+      // de texto libre (sin producto_id) es puramente un ajuste de precio/
+      // descripción y nunca toca stock -- no hay producto real detrás. Un
+      // extra que SÍ referencia un producto real de catálogo descuenta su
+      // stock exactamente igual que un ítem normal (confirmado por el dueño
+      // del negocio: es una unidad real que sale de inventario, no un simple
+      // ajuste de precio), usando la cantidad del extra -- no la del ítem
+      // padre -- y las mismas reglas combo / controla_stock=false / falla
+      // a `sinStock` que ya aplica el loop de ítems más abajo. Los extras no
+      // tienen concepto de variante, así que solo aplican las reglas a nivel
+      // producto.
       for (const extra of item.extras) {
         await connection.query(
           `INSERT INTO venta_item_extras (venta_item_id, producto_id, descripcion, precio, cantidad)
            VALUES (?, ?, ?, ?, ?)`,
           [ventaItemId, extra.productoId || null, extra.descripcion, extra.precio, extra.cantidad],
         );
+
+        if (!extra.productoId) {
+          continue;
+        }
+
+        if (precioTipoMap.get(parseInt(extra.productoId)) === "combo") {
+          const { ok: comboOk } = await aplicarMovimientoStockCombo(
+            connection,
+            {
+              comboProductoId: extra.productoId,
+              cantidadCombos: extra.cantidad,
+              tipo: "salida_venta",
+              refColumn: "venta_id",
+              refId: ventaId,
+            },
+          );
+
+          if (!comboOk) {
+            sinStock.push(extra.productoId);
+          }
+          continue;
+        }
+
+        if (controlaStockMap.get(parseInt(extra.productoId)) === false) {
+          continue;
+        }
+
+        const { ok: extraOk } = await aplicarMovimientoStock(connection, {
+          productoId: extra.productoId,
+          varianteId: null,
+          cantidad: extra.cantidad,
+          direccion: "salida",
+          tipo: "salida_venta",
+          refColumn: "venta_id",
+          refId: ventaId,
+        });
+
+        if (!extraOk) {
+          sinStock.push(extra.productoId);
+        }
       }
 
       if (item.esManual) {
