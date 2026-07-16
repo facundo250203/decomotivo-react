@@ -51,3 +51,6 @@ Thumbs.db
 # Otros
 *.log
 .eslintcache
+
+# Gentle AI / herramientas locales
+.atl/
