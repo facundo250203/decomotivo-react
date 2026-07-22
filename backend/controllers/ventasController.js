@@ -29,7 +29,13 @@ const getVentas = async (req, res) => {
       SELECT
         v.id, v.pedido_id, v.cliente_id, v.fecha, v.monto_efectivo, v.monto_transferencia,
         v.monto_cuenta_corriente, v.descuento, v.monto_total, v.tipo, v.notas,
-        COALESCE(v.cliente_nombre, CONCAT_WS(' ', cl.nombre, cl.apellido), p.cliente_nombre) as cliente_nombre,
+        -- NULLIF(...,'') a propósito: si v.cliente_id es NULL (seña/pago de
+        -- un pedido, el cliente vive en el pedido, no en la venta), el JOIN
+        -- a clientes no matchea y CONCAT_WS(' ', NULL, NULL) da '' (no NULL
+        -- -- a diferencia de CONCAT, CONCAT_WS nunca devuelve NULL salvo que
+        -- el separador lo sea). Sin el NULLIF, COALESCE toma ese '' como
+        -- "valor válido" y nunca llega al fallback de p.cliente_nombre.
+        COALESCE(v.cliente_nombre, NULLIF(CONCAT_WS(' ', cl.nombre, cl.apellido), ''), p.cliente_nombre) as cliente_nombre,
         COALESCE(v.cliente_telefono, cl.telefono, p.cliente_telefono) as cliente_telefono,
         -- Venta directa tiene sus propios venta_items; seña/pago no tienen
         -- items propios, así que se muestran los del pedido al que pertenecen.
@@ -114,7 +120,7 @@ const getVentaById = async (req, res) => {
     const [ventas] = await promisePool.query(
       `SELECT
         v.*,
-        COALESCE(v.cliente_nombre, CONCAT_WS(' ', cl.nombre, cl.apellido), p.cliente_nombre) as cliente_nombre_resuelto,
+        COALESCE(v.cliente_nombre, NULLIF(CONCAT_WS(' ', cl.nombre, cl.apellido), ''), p.cliente_nombre) as cliente_nombre_resuelto,
         COALESCE(v.cliente_telefono, cl.telefono, p.cliente_telefono) as cliente_telefono_resuelto
       FROM ventas v
       LEFT JOIN pedidos p ON p.id = v.pedido_id
