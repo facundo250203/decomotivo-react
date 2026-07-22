@@ -1,5 +1,6 @@
 // src/pages/admin/Dashboard.jsx
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   ResponsiveContainer,
   LineChart,
@@ -24,12 +25,23 @@ import { getErrorInfo } from "../../utils/errorHandler";
 
 const COLORES = ["#c70000", "#333333", "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6"];
 
-const hace30Dias = () => {
-  const d = new Date();
-  d.setDate(d.getDate() - 30);
-  return d.toISOString().slice(0, 10);
+// No usar toISOString() acá -- siempre da la fecha en UTC, y a partir de las
+// 21:00 hora Argentina (UTC-3) ya cruzó la medianoche UTC y devuelve "mañana".
+// Se arma la fecha desde los componentes LOCALES en cambio.
+const formatFechaLocalISO = (d) => {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+const hoyISO = () => formatFechaLocalISO(new Date());
+
+// Arranque por defecto del dashboard: el 20/07/2026 fue el primer cierre de
+// caja OFICIAL (ver CajaDashboard) -- todo lo cargado antes de esa fecha son
+// entradas de arrastre (deudas y pedidos viejos puestos al día en el
+// sistema), no actividad real del período que se está siguiendo. Fija en
+// vez de "últimos 30 días" para no mezclar ambas cosas en top
+// productos/clientes/facturación por defecto -- el campo "Desde" sigue
+// siendo editable si alguna vez hace falta ver todo el histórico.
+const INICIO_CONTROL_VENTAS = "2026-07-20";
 
 const formatPrecio = (valor) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(
@@ -58,7 +70,7 @@ const Dashboard = () => {
   const toast = useToast();
   const [datos, setDatos] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [desde, setDesde] = useState(hace30Dias());
+  const [desde, setDesde] = useState(INICIO_CONTROL_VENTAS);
   const [hasta, setHasta] = useState(hoyISO());
 
   useEffect(() => {
@@ -125,13 +137,17 @@ const Dashboard = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Facturación en el tiempo */}
-          <Panel titulo="Facturación en el tiempo">
+          {/* Ingresos por día: barras apiladas (efectivo + transferencia),
+              con un renglón en 0 para cada día sin venta (ver
+              getFacturacionSerie) -- una línea conectando solo los días con
+              datos reales sugiere una tendencia continua que no existe en un
+              negocio con ventas salteadas, no diarias. */}
+          <Panel titulo="Ingresos por Día">
             {datos.facturacion_serie.length === 0 ? (
               <SinDatos />
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={datos.facturacion_serie}>
+                <BarChart data={datos.facturacion_serie} margin={{ top: 24 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="fecha" tickFormatter={formatFechaCorta} />
                   <YAxis />
@@ -140,27 +156,135 @@ const Dashboard = () => {
                     formatter={(valor) => formatPrecio(valor)}
                   />
                   <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="total"
-                    name="Total"
-                    stroke={COLORES[0]}
-                    strokeWidth={2}
-                  />
-                  <Line
-                    type="monotone"
+                  <Bar
                     dataKey="efectivo"
                     name="Efectivo"
-                    stroke={COLORES[3]}
+                    stackId="ingresos"
+                    fill={COLORES[3]}
                   />
-                  <Line
-                    type="monotone"
+                  <Bar
                     dataKey="transferencia"
                     name="Transferencia"
-                    stroke={COLORES[2]}
-                  />
-                </LineChart>
+                    stackId="ingresos"
+                    fill={COLORES[2]}
+                  >
+                    {/* dataKey="total" a propósito distinto del dataKey del
+                        Bar que lo contiene -- Recharts posiciona la etiqueta
+                        arriba de ESTE Bar (el de más arriba en el stack, o
+                        sea arriba de toda la barra apilada) pero el texto
+                        sale del campo "total" de la fila, no de
+                        "transferencia". Así se muestra el total del día sin
+                        agregar una tercera barra invisible. */}
+                    <LabelList
+                      dataKey="total"
+                      position="top"
+                      formatter={formatPrecio}
+                      style={{ fontSize: 11, fill: "#333333" }}
+                    />
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
+            )}
+          </Panel>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Pedidos con pago pendiente: señados cuyo total todavía no
+                está cubierto por lo cobrado. Mismo dato que ya usa el
+                polling de N8N (ver reportesController.getPedidosPagoPendiente),
+                acá recién se muestra también en el panel admin. Lista, no
+                gráfico -- son ítems puntuales para seguir, no una métrica
+                agregada. */}
+            <Panel titulo="Pedidos con Pago Pendiente">
+              {datos.pedidos_pago_pendiente.length === 0 ? (
+                <p className="text-sm text-gris-medio py-4 text-center">
+                  No hay pedidos señados con saldo pendiente.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {datos.pedidos_pago_pendiente.map((p) => (
+                    <Link
+                      key={p.id}
+                      to={`/admin/pedidos/${p.id}`}
+                      className="flex justify-between items-center border rounded-lg p-3 text-sm hover:bg-gray-50"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          Pedido #{p.id} — {p.cliente_nombre || "Sin nombre"}
+                        </p>
+                        <p className="text-gray-500">
+                          Señado el {formatFechaCorta(p.fecha_senado)}
+                        </p>
+                      </div>
+                      <span className="font-semibold text-red-600">
+                        {formatPrecio(p.saldo_pendiente)}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            {/* Pedidos estancados: "solicitado" hace más de 3 días sin pasar
+                a señado -- mismo umbral que usa N8N por defecto. */}
+            <Panel titulo="Pedidos Estancados">
+              {datos.pedidos_estancados.length === 0 ? (
+                <p className="text-sm text-gris-medio py-4 text-center">
+                  No hay pedidos solicitados esperando hace más de 3 días.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {datos.pedidos_estancados.map((p) => (
+                    <Link
+                      key={p.id}
+                      to={`/admin/pedidos/${p.id}`}
+                      className="flex justify-between items-center border rounded-lg p-3 text-sm hover:bg-gray-50"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          Pedido #{p.id} — {p.cliente_nombre || "Sin nombre"}
+                        </p>
+                        <p className="text-gray-500">
+                          Pedido el {formatFechaCorta(p.fecha_pedido)}
+                        </p>
+                      </div>
+                      <span className="font-semibold text-amber-600">
+                        {p.dias_esperando} día{p.dias_esperando === 1 ? "" : "s"}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </Panel>
+          </div>
+
+          {/* Clientes con deuda pendiente: cuenta corriente > 0, venga de un
+              pedido señado o de una venta directa fiada (mostrador, sin
+              pedido detrás) -- este segundo caso no aparece en "Pedidos con
+              Pago Pendiente" de arriba porque esa vista solo mira pedidos.
+              Mismo dato que consume el polling de N8N. */}
+          <Panel titulo="Clientes con Deuda Pendiente">
+            {datos.clientes_con_deuda.length === 0 ? (
+              <p className="text-sm text-gris-medio py-4 text-center">
+                Ningún cliente tiene saldo pendiente en cuenta corriente.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {datos.clientes_con_deuda.map((c) => (
+                  <Link
+                    key={c.id}
+                    to={`/admin/clientes/${c.id}`}
+                    className="flex justify-between items-center border rounded-lg p-3 text-sm hover:bg-gray-50"
+                  >
+                    <div>
+                      <p className="font-medium">{c.nombre}</p>
+                      <p className="text-gray-500">{c.telefono || "Sin teléfono"}</p>
+                    </div>
+                    <span className="font-semibold text-red-600">
+                      {formatPrecio(c.saldo)}
+                    </span>
+                  </Link>
+                ))}
+              </div>
             )}
           </Panel>
 
@@ -507,7 +631,7 @@ const Dashboard = () => {
                         Producto
                       </th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                        Medida
+                        Variante
                       </th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                         Stock actual

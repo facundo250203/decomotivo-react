@@ -25,22 +25,35 @@ const hace30Dias = () => {
 const hoyISO = () => new Date().toISOString().slice(0, 10);
 
 // ============================================
-// FACTURACIÓN EN EL TIEMPO (serie diaria). Excluye tipo='pago_cuenta_corriente':
-// esa plata ya se contó como facturación en la venta_directa fiada original
-// (su monto_total incluye la porción a cuenta corriente) -- sumar también el
-// pago posterior duplicaría el ingreso.
+// INGRESOS POR DÍA (serie diaria, un punto por cada día del rango, con 0 en
+// los días sin venta). Excluye tipo='pago_cuenta_corriente': esa plata ya se
+// contó como ingreso en la venta_directa fiada original (su monto_total
+// incluye la porción a cuenta corriente) -- sumar también el pago posterior
+// duplicaría el ingreso.
+//
+// La serie se arma con un CTE recursivo que genera un renglón por cada día
+// del rango (`dias`) y hace LEFT JOIN contra `ventas` -- sin esto, un día sin
+// ventas simplemente no aparece en el resultado (GROUP BY solo devuelve
+// fechas con al menos una fila), y un gráfico de barras/línea que conecta
+// únicamente los días CON datos termina implicando una tendencia continua
+// que no existe cuando el negocio tiene ventas salteadas, no diarias.
 // ============================================
 const getFacturacionSerie = async (desde, hasta) => {
   const [rows] = await promisePool.query(
-    `SELECT DATE(fecha) as fecha,
-      COALESCE(SUM(monto_efectivo), 0) as efectivo,
-      COALESCE(SUM(monto_transferencia), 0) as transferencia,
-      COALESCE(SUM(monto_total), 0) as total
-     FROM ventas
-     WHERE DATE(fecha) BETWEEN ? AND ?
-       AND tipo != 'pago_cuenta_corriente'
-     GROUP BY DATE(fecha)
-     ORDER BY fecha ASC`,
+    `WITH RECURSIVE dias AS (
+       SELECT ? AS dia
+       UNION ALL
+       SELECT DATE_ADD(dia, INTERVAL 1 DAY) FROM dias WHERE dia < ?
+     )
+     SELECT dias.dia as fecha,
+       COALESCE(SUM(v.monto_efectivo), 0) as efectivo,
+       COALESCE(SUM(v.monto_transferencia), 0) as transferencia,
+       COALESCE(SUM(v.monto_total), 0) as total
+     FROM dias
+     LEFT JOIN ventas v
+       ON DATE(v.fecha) = dias.dia AND v.tipo != 'pago_cuenta_corriente'
+     GROUP BY dias.dia
+     ORDER BY dias.dia ASC`,
     [desde, hasta],
   );
   return rows.map((r) => ({
@@ -48,6 +61,89 @@ const getFacturacionSerie = async (desde, hasta) => {
     efectivo: parseFloat(r.efectivo),
     transferencia: parseFloat(r.transferencia),
     total: parseFloat(r.total),
+  }));
+};
+
+// ============================================
+// PEDIDOS SEÑADOS CON PAGO FINAL PENDIENTE (estado='senado' y lo cobrado en
+// ventas todavía no cubre el total). Compartida con n8nController -- misma
+// query, un solo lugar de verdad, igual que ya pasa con getTopProductos.
+// ============================================
+const getPedidosPagoPendiente = async () => {
+  const [rows] = await promisePool.query(
+    `SELECT p.id, p.cliente_nombre, p.cliente_telefono, p.total,
+      COALESCE(SUM(v.monto_total), 0) as total_pagado,
+      p.total - COALESCE(SUM(v.monto_total), 0) as saldo_pendiente,
+      p.fecha_senado
+     FROM pedidos p
+     LEFT JOIN ventas v ON v.pedido_id = p.id
+     WHERE p.estado = 'senado'
+     GROUP BY p.id, p.cliente_nombre, p.cliente_telefono, p.total, p.fecha_senado
+     HAVING saldo_pendiente > 0.01
+     ORDER BY p.fecha_senado ASC`,
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    cliente_nombre: r.cliente_nombre,
+    cliente_telefono: r.cliente_telefono,
+    total: parseFloat(r.total),
+    total_pagado: parseFloat(r.total_pagado),
+    saldo_pendiente: parseFloat(r.saldo_pendiente),
+    fecha_senado: r.fecha_senado,
+  }));
+};
+
+// ============================================
+// PEDIDOS ESTANCADOS (solicitados hace más de N días sin pasar a señado).
+// Compartida con n8nController, mismo criterio que getPedidosPagoPendiente.
+// ============================================
+const getPedidosEstancados = async (dias = 3) => {
+  const [rows] = await promisePool.query(
+    `SELECT id, cliente_nombre, cliente_telefono, total, fecha_pedido,
+      DATEDIFF(NOW(), fecha_pedido) as dias_esperando
+     FROM pedidos
+     WHERE estado = 'solicitado' AND fecha_pedido < DATE_SUB(NOW(), INTERVAL ? DAY)
+     ORDER BY fecha_pedido ASC`,
+    [dias],
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    cliente_nombre: r.cliente_nombre,
+    cliente_telefono: r.cliente_telefono,
+    total: parseFloat(r.total),
+    fecha_pedido: r.fecha_pedido,
+    dias_esperando: r.dias_esperando,
+  }));
+};
+
+// ============================================
+// CLIENTES CON DEUDA PENDIENTE (saldo > 0 en cuenta corriente). Cubre lo que
+// pedidos-pago-pendiente NO ve: una venta directa fiada (mostrador, sin
+// pedido detrás) no tiene pedido_id, así que esa deuda es invisible para esa
+// consulta -- acá se suma directo movimientos_cuenta_corriente, mismo
+// criterio de signo que calcularSaldoCliente (cuentaCorriente.js), sin
+// importar si la deuda vino de un pedido señado o de una venta directa a
+// cuenta. Compartida con n8nController, mismo patrón que
+// getPedidosPagoPendiente/getPedidosEstancados.
+// ============================================
+const getClientesConDeuda = async () => {
+  const [rows] = await promisePool.query(
+    `SELECT cl.id, CONCAT_WS(' ', cl.nombre, cl.apellido) as nombre, cl.telefono,
+      SUM(CASE WHEN mcc.tipo IN ('venta_fiado', 'saldo_a_favor_aplicado') THEN mcc.monto ELSE -mcc.monto END) as saldo
+     FROM movimientos_cuenta_corriente mcc
+     JOIN clientes cl ON cl.id = mcc.cliente_id
+     GROUP BY cl.id, cl.nombre, cl.apellido, cl.telefono
+     HAVING saldo > 0.01
+     ORDER BY saldo DESC`,
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
+    telefono: r.telefono,
+    saldo: parseFloat(r.saldo),
   }));
 };
 
@@ -293,15 +389,21 @@ const getSaldoCajaSerie = async (desde, hasta) => {
 // ============================================
 const getStockBajo = async () => {
   const [rows] = await promisePool.query(
+    // stock_minimo = 0 es el default de un producto/variante nunca
+    // configurado (ver migración 001: "conservador, no alerta nada hasta
+    // que se configure producto por producto") -- sin el ">0" acá, CUALQUIER
+    // producto sin configurar que se quede en 0 unidades entra igual
+    // (0 <= 0), inundando esto de ruido de productos que nunca pidieron ser
+    // vigilados.
     `SELECT p.titulo as producto, NULL as variante, p.cantidad, p.stock_minimo
        FROM productos p
        WHERE p.controla_stock = 1 AND p.precio_tipo NOT IN ('variantes', 'combo')
-         AND p.activo = 1 AND p.cantidad <= p.stock_minimo
+         AND p.activo = 1 AND p.stock_minimo > 0 AND p.cantidad <= p.stock_minimo
      UNION ALL
      SELECT p.titulo as producto, pv.nombre as variante, pv.cantidad, pv.stock_minimo
        FROM producto_variantes pv
        JOIN productos p ON p.id = pv.producto_id
-       WHERE pv.activo = 1 AND p.activo = 1 AND pv.cantidad <= pv.stock_minimo
+       WHERE pv.activo = 1 AND p.activo = 1 AND pv.stock_minimo > 0 AND pv.cantidad <= pv.stock_minimo
      ORDER BY cantidad ASC`,
   );
   return rows.map((r) => ({
@@ -332,6 +434,9 @@ const getResumen = async (req, res) => {
       clientes_nuevos_vs_recurrentes,
       saldo_caja_serie,
       stock_bajo,
+      pedidos_pago_pendiente,
+      pedidos_estancados,
+      clientes_con_deuda,
     ] = await Promise.all([
       getFacturacionSerie(desde, hasta),
       getVentasPorCategoria(desde, hasta),
@@ -343,6 +448,12 @@ const getResumen = async (req, res) => {
       getClientesNuevosVsRecurrentes(desde, hasta),
       getSaldoCajaSerie(desde, hasta),
       getStockBajo(),
+      // pedidos_pago_pendiente/estancados/clientes_con_deuda son estado
+      // ACTUAL, no un reporte del rango desde/hasta (mismo criterio que
+      // stock_bajo, que tampoco depende del período elegido).
+      getPedidosPagoPendiente(),
+      getPedidosEstancados(),
+      getClientesConDeuda(),
     ]);
 
     res.json({
@@ -359,6 +470,9 @@ const getResumen = async (req, res) => {
         clientes_nuevos_vs_recurrentes,
         saldo_caja_serie,
         stock_bajo,
+        pedidos_pago_pendiente,
+        pedidos_estancados,
+        clientes_con_deuda,
       },
     });
   } catch (error) {
@@ -371,6 +485,15 @@ const getResumen = async (req, res) => {
   }
 };
 
-// getTopProductos también se reutiliza desde n8nController (reporte
-// semanal), para no duplicar la consulta de ítems vendidos.
-module.exports = { getResumen, getTopProductos };
+// getTopProductos/getStockBajo/getPedidosPagoPendiente/getPedidosEstancados/
+// getClientesConDeuda también se reutilizan desde n8nController (reporte
+// semanal y polling), para no duplicar las mismas consultas en dos
+// controllers.
+module.exports = {
+  getResumen,
+  getTopProductos,
+  getStockBajo,
+  getPedidosPagoPendiente,
+  getPedidosEstancados,
+  getClientesConDeuda,
+};
