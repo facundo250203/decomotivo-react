@@ -152,7 +152,9 @@ const Dashboard = () => {
                   <XAxis dataKey="fecha" tickFormatter={formatFechaCorta} />
                   <YAxis />
                   <Tooltip
-                    labelFormatter={formatFechaCorta}
+                    labelFormatter={(fecha, payload) =>
+                      `${formatFechaCorta(fecha)} - ${formatPrecio(payload?.[0]?.payload?.total)}`
+                    }
                     formatter={(valor) => formatPrecio(valor)}
                   />
                   <Legend />
@@ -167,21 +169,7 @@ const Dashboard = () => {
                     name="Transferencia"
                     stackId="ingresos"
                     fill={COLORES[2]}
-                  >
-                    {/* dataKey="total" a propósito distinto del dataKey del
-                        Bar que lo contiene -- Recharts posiciona la etiqueta
-                        arriba de ESTE Bar (el de más arriba en el stack, o
-                        sea arriba de toda la barra apilada) pero el texto
-                        sale del campo "total" de la fila, no de
-                        "transferencia". Así se muestra el total del día sin
-                        agregar una tercera barra invisible. */}
-                    <LabelList
-                      dataKey="total"
-                      position="top"
-                      formatter={formatPrecio}
-                      style={{ fontSize: 11, fill: "#333333" }}
-                    />
-                  </Bar>
+                  />
                 </BarChart>
               </ResponsiveContainer>
             )}

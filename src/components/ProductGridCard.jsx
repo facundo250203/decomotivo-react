@@ -26,7 +26,7 @@ const ProductGridCard = ({ producto }) => {
 
   return (
     <div className="producto-card bg-blanco rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:shadow-custom-lg">
-      {producto.mostrar_imagen !== false && (
+      {producto.mostrar_imagen !== false && producto.imagenes?.length > 0 && (
         <div className="relative">
           {tieneOferta && (
             <span className="absolute top-3 left-3 z-10 bg-red-600 text-white text-xs font-bold w-14 h-14 rounded-full flex items-center justify-center text-center leading-tight shadow-lg">
