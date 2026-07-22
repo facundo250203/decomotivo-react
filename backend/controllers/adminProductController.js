@@ -34,6 +34,11 @@ const CAMPOS_EDITABLES_PRODUCTO = [
   "precio_oferta",
   "activo",
   "visible_publico",
+  "mostrar_precio",
+  "mostrar_imagen",
+  "mostrar_descripcion",
+  "unidades_por_caja",
+  "precio_caja",
 ];
 
 // Una oferta solo tiene sentido sobre un precio de lista fijo: "desde" y
@@ -50,6 +55,27 @@ const validarOferta = ({ en_oferta, precio_tipo, precio_valor, precio_oferta }) 
   }
   if (parseFloat(precio_oferta) >= parseFloat(precio_valor)) {
     return "El precio de oferta debe ser menor al precio normal";
+  }
+  return null;
+};
+
+// unidades_por_caja y precio_caja son un par: uno sin el otro no significa
+// nada (¿precio de una caja de cuántas unidades? ¿cuántas unidades por caja
+// a qué precio?). Ambos opcionales -- un producto sin ninguno de los dos
+// simplemente no se vende por caja, como hoy.
+const validarVentaPorCaja = ({ unidades_por_caja, precio_caja }) => {
+  const tieneUnidades = unidades_por_caja !== undefined && unidades_por_caja !== null && unidades_por_caja !== "";
+  const tienePrecio = precio_caja !== undefined && precio_caja !== null && precio_caja !== "";
+
+  if (!tieneUnidades && !tienePrecio) return null;
+  if (tieneUnidades !== tienePrecio) {
+    return "Para vender por caja hace falta indicar tanto las unidades por caja como el precio de la caja";
+  }
+  if (!Number.isInteger(Number(unidades_por_caja)) || Number(unidades_por_caja) <= 0) {
+    return "Las unidades por caja deben ser un número entero mayor a 0";
+  }
+  if (!Number.isFinite(parseFloat(precio_caja)) || parseFloat(precio_caja) <= 0) {
+    return "El precio de la caja debe ser un número mayor a 0";
   }
   return null;
 };
@@ -80,7 +106,17 @@ const createProduct = async (req, res) => {
       en_oferta,
       precio_oferta,
       visible_publico,
+      mostrar_precio,
+      mostrar_imagen,
+      mostrar_descripcion,
+      unidades_por_caja,
+      precio_caja,
     } = req.body;
+
+    const errorVentaPorCaja = validarVentaPorCaja({ unidades_por_caja, precio_caja });
+    if (errorVentaPorCaja) {
+      return res.status(400).json({ success: false, error: errorVentaPorCaja });
+    }
 
     // controla_stock por defecto es true (la mayoría del catálogo controla
     // stock); solo queda en false si se manda explícitamente
@@ -91,6 +127,13 @@ const createProduct = async (req, res) => {
     // `activo`: un producto puede existir y venderse por el admin sin
     // aparecer en la tienda.
     const visiblePublicoFinal = visible_publico === undefined ? 1 : parseBooleano(visible_publico);
+
+    // mostrar_precio/mostrar_imagen/mostrar_descripcion: mismo default true
+    // que visible_publico -- solo aplican mientras el producto ya es
+    // visible, no reemplazan a visible_publico.
+    const mostrarPrecioFinal = mostrar_precio === undefined ? 1 : parseBooleano(mostrar_precio);
+    const mostrarImagenFinal = mostrar_imagen === undefined ? 1 : parseBooleano(mostrar_imagen);
+    const mostrarDescripcionFinal = mostrar_descripcion === undefined ? 1 : parseBooleano(mostrar_descripcion);
 
     const enOfertaFinal = en_oferta === undefined ? 0 : parseBooleano(en_oferta);
 
@@ -125,8 +168,9 @@ const createProduct = async (req, res) => {
       `INSERT INTO productos (
         categoria_id, titulo, slug, descripcion, precio_valor, precio_oferta, precio_tipo,
         material, medidas, capacidad, personalizable, colores, cantidad,
-        stock_minimo, controla_stock, tiempo_entrega_tipo, tiempo_entrega_dias, destacado, en_oferta, activo, visible_publico
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?)`,
+        stock_minimo, controla_stock, tiempo_entrega_tipo, tiempo_entrega_dias, destacado, en_oferta, activo, visible_publico,
+        mostrar_precio, mostrar_imagen, mostrar_descripcion, unidades_por_caja, precio_caja
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?, ?, ?, ?)`,
       [
         categoria_id,
         titulo,
@@ -148,6 +192,11 @@ const createProduct = async (req, res) => {
         destacado || false,
         enOfertaFinal,
         visiblePublicoFinal,
+        mostrarPrecioFinal,
+        mostrarImagenFinal,
+        mostrarDescripcionFinal,
+        unidades_por_caja || null,
+        precio_caja || null,
       ],
     );
 
@@ -203,13 +252,22 @@ const updateProduct = async (req, res) => {
     if (updates.visible_publico !== undefined) {
       updates.visible_publico = parseBooleano(updates.visible_publico);
     }
+    if (updates.mostrar_precio !== undefined) {
+      updates.mostrar_precio = parseBooleano(updates.mostrar_precio);
+    }
+    if (updates.mostrar_imagen !== undefined) {
+      updates.mostrar_imagen = parseBooleano(updates.mostrar_imagen);
+    }
+    if (updates.mostrar_descripcion !== undefined) {
+      updates.mostrar_descripcion = parseBooleano(updates.mostrar_descripcion);
+    }
     if (updates.en_oferta !== undefined) {
       updates.en_oferta = parseBooleano(updates.en_oferta);
     }
 
     // Verificar que el producto existe
     const [products] = await promisePool.query(
-      "SELECT id, precio_tipo, precio_valor, precio_oferta, en_oferta FROM productos WHERE id = ?",
+      "SELECT id, precio_tipo, precio_valor, precio_oferta, en_oferta, unidades_por_caja, precio_caja FROM productos WHERE id = ?",
       [id],
     );
 
@@ -218,6 +276,23 @@ const updateProduct = async (req, res) => {
         success: false,
         error: "Producto no encontrado",
       });
+    }
+
+    // La validación de venta por caja corre sobre el estado FINAL (valores
+    // nuevos si vienen en el update, si no los que ya tenía en la DB) --
+    // mismo criterio que la validación de oferta más abajo.
+    const errorVentaPorCaja = validarVentaPorCaja({
+      unidades_por_caja:
+        updates.unidades_por_caja !== undefined
+          ? updates.unidades_por_caja
+          : products[0].unidades_por_caja,
+      precio_caja:
+        updates.precio_caja !== undefined
+          ? updates.precio_caja
+          : products[0].precio_caja,
+    });
+    if (errorVentaPorCaja) {
+      return res.status(400).json({ success: false, error: errorVentaPorCaja });
     }
 
     // Validar precio_tipo si viene en el update

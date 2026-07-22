@@ -18,28 +18,35 @@ const ProductGridCard = ({ producto }) => {
   const varianteSeleccionada = producto.variantes?.find(
     (v) => v.id === varianteId,
   );
+  // "Desde" solo tiene sentido si las variantes activas realmente varían de
+  // precio -- si todas cuestan lo mismo (ej. Mapas, todos a $300), decirlo
+  // implica una opción más cara que no existe.
+  const hayRangoDePrecioEnVariantes =
+    producto.precio_valor_max > producto.precio_valor;
 
   return (
     <div className="producto-card bg-blanco rounded-xl overflow-hidden shadow-custom transition-all duration-300 hover:shadow-custom-lg">
-      <div className="relative">
-        {tieneOferta && (
-          <span className="absolute top-3 left-3 z-10 bg-red-600 text-white text-xs font-bold w-14 h-14 rounded-full flex items-center justify-center text-center leading-tight shadow-lg">
-            Oferta
-          </span>
-        )}
-        <ProductImageCarousel
-          imagenes={producto.imagenes}
-          titulo={producto.titulo}
-          className="h-72"
-        />
-      </div>
+      {producto.mostrar_imagen !== false && (
+        <div className="relative">
+          {tieneOferta && (
+            <span className="absolute top-3 left-3 z-10 bg-red-600 text-white text-xs font-bold w-14 h-14 rounded-full flex items-center justify-center text-center leading-tight shadow-lg">
+              Oferta
+            </span>
+          )}
+          <ProductImageCarousel
+            imagenes={producto.imagenes}
+            titulo={producto.titulo}
+            className="h-72"
+          />
+        </div>
+      )}
 
       <div className="p-6">
         <h3 className="text-xl font-semibold mb-2 text-secondary">
           {producto.titulo}
         </h3>
 
-        {tieneOferta ? (
+        {producto.mostrar_precio === false ? null : tieneOferta ? (
           <p className="mb-3 flex items-center gap-2 flex-wrap">
             <span className="text-lg text-gris-medio line-through">
               {formatPrice(producto.precio_valor)}
@@ -52,7 +59,9 @@ const ProductGridCard = ({ producto }) => {
           <p className="text-2xl font-bold text-primary mb-3">
             {varianteSeleccionada
               ? formatPrice(varianteSeleccionada.precio_valor)
-              : `Desde ${formatPrice(producto.precio_valor)}`}
+              : hayRangoDePrecioEnVariantes
+                ? `Desde ${formatPrice(producto.precio_valor)}`
+                : formatPrice(producto.precio_valor)}
           </p>
         ) : (producto.precio_tipo === "fijo" || producto.precio_tipo === "combo") &&
           producto.precio_valor ? (
@@ -70,7 +79,7 @@ const ProductGridCard = ({ producto }) => {
         {esVariantes && (
           <div className="mb-4">
             <label className="block text-sm text-gris-medio mb-1">
-              Elegí una medida:
+              Elegí una variante:
             </label>
             <select
               value={varianteId}
@@ -79,12 +88,14 @@ const ProductGridCard = ({ producto }) => {
               }
               className="w-full px-3 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             >
-              <option value="">Seleccionar medida</option>
+              <option value="">Seleccionar variante</option>
               {producto.variantes
                 ?.filter((v) => v.activo)
                 .map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.nombre} - {formatPrice(v.precio_valor)}
+                    {v.nombre}
+                    {producto.mostrar_precio !== false &&
+                      ` - ${formatPrice(v.precio_valor)}`}
                     {v.cantidad <= 0 ? " (Sin stock, igual podés consultar)" : ""}
                   </option>
                 ))}
@@ -92,7 +103,7 @@ const ProductGridCard = ({ producto }) => {
           </div>
         )}
 
-        {producto.descripcion && (
+        {producto.descripcion && producto.mostrar_descripcion !== false && (
           <p className="text-texto mb-4">{producto.descripcion}</p>
         )}
 
@@ -156,7 +167,7 @@ const ProductGridCard = ({ producto }) => {
               disabled
               className="w-full inline-flex items-center justify-center gap-3 bg-gris-claro text-gris-medio px-6 py-3 rounded-lg font-semibold cursor-not-allowed"
             >
-              Elegí una medida
+              Elegí una variante
             </button>
           )
         ) : (producto.precio_tipo === "fijo" || producto.precio_tipo === "combo") &&

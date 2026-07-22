@@ -10,6 +10,8 @@ const PRODUCTO_SELECT_FROM = `
   p.precio_valor, p.precio_oferta, p.precio_tipo, p.material, p.medidas, p.capacidad,
   p.personalizable, p.colores, p.cantidad, p.stock_minimo, p.controla_stock,
   p.tiempo_entrega_tipo, p.tiempo_entrega_dias, p.destacado, p.en_oferta, p.activo, p.visible_publico,
+  p.mostrar_precio, p.mostrar_imagen, p.mostrar_descripcion,
+  p.unidades_por_caja, p.precio_caja,
   c.nombre as categoria_nombre, c.slug as categoria_slug,
   i.id as imagen_id, i.url as imagen_url, i.cloudinary_id as imagen_cloudinary_id,
   i.es_principal as imagen_es_principal, i.orden as imagen_orden, i.alt_text as imagen_alt_text
@@ -55,6 +57,14 @@ const structureProductWithImages = (rows) => {
     en_oferta: Boolean(rows[0].en_oferta),
     activo: Boolean(rows[0].activo),
     visible_publico: Boolean(rows[0].visible_publico),
+    mostrar_precio: Boolean(rows[0].mostrar_precio),
+    mostrar_imagen: Boolean(rows[0].mostrar_imagen),
+    mostrar_descripcion: Boolean(rows[0].mostrar_descripcion),
+
+    // VENTA POR CAJA -- puramente informativo para la carga de ventas/
+    // pedidos (ver migración 027), nunca se muestra en el catálogo público.
+    unidades_por_caja: rows[0].unidades_por_caja,
+    precio_caja: rows[0].precio_caja ? parseFloat(rows[0].precio_caja) : null,
 
     categoria: {
       id: rows[0].categoria_id,
@@ -127,6 +137,23 @@ const attachVariantes = async (products, { soloActivas = true } = {}) => {
         .map((v) => v.precio_valor);
       product.precio_valor =
         preciosActivos.length > 0 ? Math.min(...preciosActivos) : null;
+      // precio_valor_max: junto con precio_valor (el mínimo, arriba), le
+      // permite al frontend mostrar "Desde $X" solo cuando las variantes
+      // activas realmente varían de precio -- si todas cuestan lo mismo,
+      // "Desde" es engañoso (implica opciones más caras que no existen).
+      // Se calcula acá, una sola vez, para que todas las pantallas
+      // (público y admin) usen el mismo criterio sin duplicar la lógica.
+      product.precio_valor_max =
+        preciosActivos.length > 0 ? Math.max(...preciosActivos) : null;
+      // product.cantidad queda sin usar en productos.cantidad para este
+      // tipo (migración 018) -- se sobreescribe acá con la suma de stock
+      // de las variantes activas, mismo criterio que attachComboStock ya
+      // aplica para 'combo', para que cualquier pantalla que lea
+      // product.cantidad (admin: ProductList, ProductDetail, ProductForm)
+      // muestre un número real en vez del valor crudo sin usar.
+      product.cantidad = product.variantes
+        .filter((v) => v.activo)
+        .reduce((total, v) => total + v.cantidad, 0);
     }
   });
 

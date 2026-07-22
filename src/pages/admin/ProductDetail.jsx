@@ -49,11 +49,18 @@ const ProductDetail = () => {
     }
     
     const precio = product.precio_valor?.toLocaleString('es-AR');
-    
-    if (product.precio_tipo === 'desde') {
+
+    // "Desde" para 'desde' siempre, y para 'variantes' solo si hay variación
+    // real de precio entre las variantes activas (ver productController.js
+    // attachVariantes -- precio_valor_max viene calculado de ahí).
+    const mostrarDesde =
+      product.precio_tipo === 'desde' ||
+      (product.precio_tipo === 'variantes' &&
+        product.precio_valor_max > product.precio_valor);
+    if (mostrarDesde) {
       return `Desde $${precio}`;
     }
-    
+
     return `$${precio}`;
   };
 

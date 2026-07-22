@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { categoriesAPI, adminProductsAPI } from "../../services/api";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ProductSearchSelect from "../../components/admin/ProductSearchSelect";
+import CategoriaSearchSelect from "../../components/admin/CategoriaSearchSelect";
 import { useToast } from "../../context/ToastContext";
 import { getErrorInfo } from "../../utils/errorHandler";
 
@@ -24,6 +25,8 @@ const ProductForm = () => {
     precio_valor: "",
     en_oferta: false,
     precio_oferta: "",
+    unidades_por_caja: "",
+    precio_caja: "",
     // Campos que faltaban:
     material: "",
     medidas: "",
@@ -39,6 +42,9 @@ const ProductForm = () => {
     destacado: false,
     activo: true,
     visible_publico: true,
+    mostrar_precio: true,
+    mostrar_imagen: true,
+    mostrar_descripcion: true,
   });
 
   const [categories, setCategories] = useState([]);
@@ -114,6 +120,8 @@ const ProductForm = () => {
           precio_valor: product.precio_valor || "",
           en_oferta: Boolean(product.en_oferta),
           precio_oferta: product.precio_oferta || "",
+          unidades_por_caja: product.unidades_por_caja || "",
+          precio_caja: product.precio_caja || "",
           material: product.material || "",
           medidas: product.medidas || "",
           capacidad: product.capacidad || "",
@@ -133,6 +141,18 @@ const ProductForm = () => {
           visible_publico:
             product.visible_publico !== undefined
               ? Boolean(product.visible_publico)
+              : true,
+          mostrar_precio:
+            product.mostrar_precio !== undefined
+              ? Boolean(product.mostrar_precio)
+              : true,
+          mostrar_imagen:
+            product.mostrar_imagen !== undefined
+              ? Boolean(product.mostrar_imagen)
+              : true,
+          mostrar_descripcion:
+            product.mostrar_descripcion !== undefined
+              ? Boolean(product.mostrar_descripcion)
               : true,
         });
         setExistingImages(product.imagenes || []);
@@ -323,7 +343,7 @@ const ProductForm = () => {
 
   const eliminarVarianteExistente = async (index) => {
     const variante = existingVariantes[index];
-    if (!window.confirm(`¿Eliminar la medida "${variante.nombre}"?`)) return;
+    if (!window.confirm(`¿Eliminar la variante "${variante.nombre}"?`)) return;
 
     try {
       const response = await adminProductsAPI.deleteVariante(
@@ -333,9 +353,9 @@ const ProductForm = () => {
       );
       if (response.success) {
         setExistingVariantes((prev) => prev.filter((_, i) => i !== index));
-        toast.success("Medida eliminada", `"${variante.nombre}" fue eliminada.`);
+        toast.success("Variante eliminada", `"${variante.nombre}" fue eliminada.`);
       } else {
-        toast.error("Error", response.error || "No se pudo eliminar la medida.");
+        toast.error("Error", response.error || "No se pudo eliminar la variante.");
       }
     } catch (error) {
       const { title, message, detail } = getErrorInfo(error);
@@ -462,6 +482,17 @@ const ProductForm = () => {
       }
     }
 
+    const tieneUnidadesPorCaja = formData.unidades_por_caja !== "";
+    const tienePrecioCaja = formData.precio_caja !== "";
+    if (tieneUnidadesPorCaja !== tienePrecioCaja) {
+      newErrors.unidades_por_caja =
+        "Para vender por caja completá tanto las unidades como el precio de la caja";
+    } else if (tieneUnidadesPorCaja && Number(formData.unidades_por_caja) <= 0) {
+      newErrors.unidades_por_caja = "Las unidades por caja deben ser mayor a 0";
+    } else if (tienePrecioCaja && Number(formData.precio_caja) <= 0) {
+      newErrors.unidades_por_caja = "El precio de la caja debe ser mayor a 0";
+    }
+
     if (formData.precio_tipo === "variantes") {
       const variantesValidas =
         existingVariantes.filter((v) => v.activo).length +
@@ -469,7 +500,7 @@ const ProductForm = () => {
           .length;
       if (variantesValidas === 0) {
         newErrors.variantes =
-          "Agregá al menos una medida con nombre y precio";
+          "Agregá al menos una variante con nombre y precio";
       }
     }
 
@@ -482,10 +513,6 @@ const ProductForm = () => {
         newErrors.comboItems =
           "Un combo necesita al menos 2 componentes (ej: mate + bombilla)";
       }
-    }
-
-    if (!isEditMode && newImages.length === 0) {
-      newErrors.images = "Debes agregar al menos una imagen";
     }
 
     setErrors(newErrors);
@@ -516,6 +543,12 @@ const ProductForm = () => {
         precio_oferta: formData.en_oferta
           ? parseFloat(formData.precio_oferta)
           : null,
+        unidades_por_caja:
+          formData.unidades_por_caja === ""
+            ? null
+            : parseInt(formData.unidades_por_caja),
+        precio_caja:
+          formData.precio_caja === "" ? null : parseFloat(formData.precio_caja),
         cantidad: parseInt(formData.cantidad) || 0,
         stock_minimo: parseInt(formData.stock_minimo) || 0,
         tiempo_entrega_dias: parseInt(formData.tiempo_entrega_dias) || 3,
@@ -699,21 +732,17 @@ const ProductForm = () => {
                 <label className="block text-sm font-medium text-texto mb-2">
                   Categoría *
                 </label>
-                <select
-                  name="categoria_id"
+                <CategoriaSearchSelect
+                  categorias={categories}
                   value={formData.categoria_id}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                    errors.categoria_id ? "border-red-500" : "border-gris-claro"
-                  }`}
-                >
-                  <option value="">Seleccionar categoría</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.nombre}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) =>
+                    handleInputChange({
+                      target: { name: "categoria_id", value },
+                    })
+                  }
+                  getOptionLabel={(cat) => cat.nombre}
+                  placeholder="Buscar categoría..."
+                />
                 {errors.categoria_id && (
                   <p className="text-red-500 text-sm mt-1">
                     {errors.categoria_id}
@@ -812,14 +841,14 @@ const ProductForm = () => {
               </div>
 
               {/* Controla stock -- no aplica a productos con variantes: el
-                  stock ahí se maneja por medida, más abajo. Tampoco aplica a
-                  combos: no tienen stock propio, se calcula solo a partir
+                  stock ahí se maneja por variante, más abajo. Tampoco aplica
+                  a combos: no tienen stock propio, se calcula solo a partir
                   del stock de sus componentes (ver migración 021). */}
               {formData.precio_tipo === "variantes" ? (
                 <div className="md:col-span-2 lg:col-span-3">
                   <p className="text-sm text-gris-medio bg-gris-claro rounded-lg p-3">
                     Este producto tiene variantes: el stock se carga por
-                    medida en la sección &quot;Variantes / Medidas&quot;, más abajo.
+                    variante en la sección &quot;Variantes&quot;, más abajo.
                   </p>
                 </div>
               ) : formData.precio_tipo === "combo" ? (
@@ -922,7 +951,7 @@ const ProductForm = () => {
                   <option value="desde">Desde (precio mínimo)</option>
                   <option value="consultar">Consultar precio</option>
                   <option value="variantes">
-                    Variantes (medidas con precio propio)
+                    Variantes (cada una con su propio precio)
                   </option>
                   <option value="combo">
                     Combo (productos existentes a precio de promo)
@@ -931,13 +960,13 @@ const ProductForm = () => {
               </div>
 
               {/* Aviso: cambiar de "variantes" a otro tipo no borra las
-                  medidas ya guardadas, solo deja de mostrarlas. */}
+                  variantes ya guardadas, solo deja de mostrarlas. */}
               {formData.precio_tipo !== "variantes" &&
                 existingVariantes.length > 0 && (
                   <div className="md:col-span-2 bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg p-3">
                     <i className="fas fa-exclamation-triangle mr-2"></i>
                     Tenés {existingVariantes.length}{" "}
-                    {existingVariantes.length === 1 ? "medida" : "medidas"}{" "}
+                    {existingVariantes.length === 1 ? "variante" : "variantes"}{" "}
                     guardada{existingVariantes.length === 1 ? "" : "s"} que
                     van a quedar ocultas (no se borran) mientras el tipo de
                     precio no sea &quot;Variantes&quot;.
@@ -1041,25 +1070,99 @@ const ProductForm = () => {
                   )}
                 </div>
               )}
+
+              {/* Venta por caja -- puramente para la carga de ventas/
+                  pedidos (ver migración 027), nunca se muestra en el
+                  catálogo público. Ambos campos son opcionales y van de a
+                  par: sin los dos, el producto se vende solo por unidad. */}
+              {formData.precio_tipo === "fijo" && (
+                <div className="md:col-span-2 border-t pt-4">
+                  <p className="text-sm font-medium text-texto mb-1">
+                    Venta por caja (opcional)
+                  </p>
+                  <p className="text-xs text-gris-medio mb-3">
+                    Para productos que también se venden en caja cerrada,
+                    compartiendo el mismo stock que la unidad suelta. No
+                    aparece en la tienda pública, solo se usa al cargar una
+                    venta o un pedido.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-xl">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">
+                        Unidades por caja
+                      </label>
+                      <input
+                        type="number"
+                        name="unidades_por_caja"
+                        value={formData.unidades_por_caja}
+                        onChange={handleInputChange}
+                        min="1"
+                        step="1"
+                        className="w-full px-3 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary"
+                        placeholder="Ej: 10"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">
+                        Precio de la caja
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gris-medio">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          name="precio_caja"
+                          value={formData.precio_caja}
+                          onChange={handleInputChange}
+                          min="0"
+                          step="0.01"
+                          className="w-full pl-8 pr-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {errors.unidades_por_caja && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.unidades_por_caja}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           {/* ============================================ */}
-          {/* SECCIÓN 3.5: Variantes / Medidas */}
+          {/* SECCIÓN 3.5: Variantes */}
           {/* ============================================ */}
           {formData.precio_tipo === "variantes" && (
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-semibold mb-1 text-secondary flex items-center gap-2">
                 <i className="fas fa-ruler-combined text-primary"></i>
-                Variantes / Medidas
+                Variantes
               </h3>
               <p className="text-xs text-gris-medio mb-4">
-                Cada medida tiene su propio precio y su propio stock. El
+                Cada variante tiene su propio precio y su propio stock. El
                 precio &quot;desde&quot; que se muestra en la tienda se calcula solo,
-                a partir de la medida más barata activa.
+                a partir de la variante más barata activa.
               </p>
               {errors.variantes && (
                 <p className="text-red-500 text-sm mb-3">{errors.variantes}</p>
+              )}
+
+              {/* Encabezado de columnas -- sin esto, un input de stock
+                  nuevo en 0 muestra "0" en vez del placeholder ("Stock"),
+                  así que no hay forma de distinguir a simple vista qué
+                  campo es cuál. */}
+              {(existingVariantes.length > 0 || newVariantes.length > 0) && (
+                <div className="hidden md:grid md:grid-cols-6 gap-2 px-3 mb-1 text-xs font-medium text-gris-medio">
+                  <span className="md:col-span-2">Nombre</span>
+                  <span>Precio</span>
+                  <span>Stock</span>
+                  <span>Stock Mínimo</span>
+                  <span></span>
+                </div>
               )}
 
               {/* Variantes ya guardadas: edición y borrado inmediatos */}
@@ -1068,7 +1171,7 @@ const ProductForm = () => {
                   {existingVariantes.map((variante, index) => (
                     <div
                       key={variante.id}
-                      className={`grid grid-cols-1 md:grid-cols-5 gap-2 items-start border rounded-lg p-3 ${
+                      className={`grid grid-cols-1 md:grid-cols-6 gap-2 items-start border rounded-lg p-3 ${
                         variante.activo ? "" : "opacity-50"
                       }`}
                     >
@@ -1114,6 +1217,21 @@ const ProductForm = () => {
                         placeholder="Stock"
                         className="px-3 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
+                      <input
+                        type="number"
+                        value={variante.stock_minimo}
+                        onChange={(e) =>
+                          handleExistingVarianteChange(
+                            index,
+                            "stock_minimo",
+                            e.target.value,
+                          )
+                        }
+                        min="0"
+                        placeholder="Stock mínimo"
+                        title="Stock mínimo: alerta cuando el stock caiga a este nivel o menos"
+                        className="px-3 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -1142,7 +1260,7 @@ const ProductForm = () => {
                   {newVariantes.map((variante, index) => (
                     <div
                       key={index}
-                      className="grid grid-cols-1 md:grid-cols-5 gap-2 items-start border border-dashed rounded-lg p-3"
+                      className="grid grid-cols-1 md:grid-cols-6 gap-2 items-start border border-dashed rounded-lg p-3"
                     >
                       <input
                         type="text"
@@ -1186,6 +1304,21 @@ const ProductForm = () => {
                         placeholder="Stock"
                         className="px-3 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                       />
+                      <input
+                        type="number"
+                        value={variante.stock_minimo}
+                        onChange={(e) =>
+                          handleNewVarianteChange(
+                            index,
+                            "stock_minimo",
+                            e.target.value,
+                          )
+                        }
+                        min="0"
+                        placeholder="Stock mínimo"
+                        title="Stock mínimo: alerta cuando el stock caiga a este nivel o menos"
+                        className="px-3 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      />
                       <button
                         type="button"
                         onClick={() => quitarNuevaVariante(index)}
@@ -1196,7 +1329,7 @@ const ProductForm = () => {
                     </div>
                   ))}
                   <p className="text-xs text-gris-medio">
-                    Estas medidas se crean cuando guardes el producto.
+                    Estas variantes se crean cuando guardes el producto.
                   </p>
                 </div>
               )}
@@ -1207,7 +1340,7 @@ const ProductForm = () => {
                 className="text-sm bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors"
               >
                 <i className="fas fa-plus mr-1"></i>
-                Agregar Medida
+                Agregar Variante
               </button>
             </div>
           )}
@@ -1325,7 +1458,7 @@ const ProductForm = () => {
                             }
                             className="px-3 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                           >
-                            <option value="">Elegir medida</option>
+                            <option value="">Elegir variante</option>
                             {productoElegido.variantes.map((v) => (
                               <option key={v.id} value={v.id}>
                                 {v.nombre}
@@ -1334,7 +1467,7 @@ const ProductForm = () => {
                           </select>
                         ) : (
                           <div className="px-3 py-2 text-xs text-gris-medio flex items-center">
-                            {productoElegido ? "Sin medidas" : ""}
+                            {productoElegido ? "Sin variantes" : ""}
                           </div>
                         )}
                         <input
@@ -1489,7 +1622,9 @@ const ProductForm = () => {
                 </div>
               </label>
 
-              {/* Visible en la tienda pública */}
+              {/* Visible en la tienda pública -- gate maestro: si se
+                  desmarca, el producto entero desaparece del catálogo
+                  (nombre incluido), no solo campos puntuales. */}
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -1500,7 +1635,7 @@ const ProductForm = () => {
                 />
                 <div>
                   <span className="font-medium text-texto">
-                    Visible en la tienda pública
+                    Visible en la tienda pública (nombre y todo lo demás)
                   </span>
                   <p className="text-xs text-gris-medio">
                     Desmarcalo para venderlo solo por pedido/venta directa,
@@ -1508,6 +1643,48 @@ const ProductForm = () => {
                   </p>
                 </div>
               </label>
+            </div>
+
+            {/* Qué campos mostrar del producto -- solo aplica si el
+                producto ya es visible (checkbox de arriba). El nombre
+                nunca se oculta acá: para ocultar el producto entero se usa
+                "Visible en la tienda pública". */}
+            <div className="mt-4 pt-4 border-t border-gris-claro">
+              <p className="text-sm font-medium text-texto mb-3">
+                Qué mostrar de este producto en la tienda
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="mostrar_precio"
+                    checked={formData.mostrar_precio}
+                    onChange={handleInputChange}
+                    className="w-5 h-5 text-green-500 border-gris-claro rounded focus:ring-green-500"
+                  />
+                  <span className="font-medium text-texto">Precio</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="mostrar_imagen"
+                    checked={formData.mostrar_imagen}
+                    onChange={handleInputChange}
+                    className="w-5 h-5 text-green-500 border-gris-claro rounded focus:ring-green-500"
+                  />
+                  <span className="font-medium text-texto">Imagen</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="mostrar_descripcion"
+                    checked={formData.mostrar_descripcion}
+                    onChange={handleInputChange}
+                    className="w-5 h-5 text-green-500 border-gris-claro rounded focus:ring-green-500"
+                  />
+                  <span className="font-medium text-texto">Descripción</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -1523,7 +1700,7 @@ const ProductForm = () => {
             {/* Input para subir */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-texto mb-2">
-                Agregar imágenes {!isEditMode && "*"}
+                Agregar imágenes
               </label>
               <input
                 type="file"
@@ -1532,9 +1709,10 @@ const ProductForm = () => {
                 onChange={handleImageSelect}
                 className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               />
-              {errors.images && (
-                <p className="text-red-500 text-sm mt-1">{errors.images}</p>
-              )}
+              <p className="text-xs text-gris-medio mt-1">
+                Opcional. Sin imagen, la tienda muestra el logo de DecoMotivo
+                como placeholder.
+              </p>
             </div>
 
             {/* Imágenes existentes */}
