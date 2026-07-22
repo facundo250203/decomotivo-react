@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { categoriesAPI, adminProductsAPI } from '../../services/api';
 import AdminLayout from '../../components/admin/AdminLayout';
+import CategoriaSearchSelect from '../../components/admin/CategoriaSearchSelect';
 import { useToast } from '../../context/ToastContext';
 import { getErrorInfo } from '../../utils/errorHandler';
 
@@ -90,7 +91,14 @@ const ProductList = () => {
       return <span className="text-gris-medio italic">Consultar</span>;
     }
     const precio = product.precio_valor?.toLocaleString('es-AR');
-    if (product.precio_tipo === 'desde') {
+    // "Desde" para 'desde' siempre (es precio abierto por definición), y
+    // para 'variantes' solo si las variantes activas realmente varían de
+    // precio -- si todas cuestan lo mismo, mostrar el número pelado.
+    const mostrarDesde =
+      product.precio_tipo === 'desde' ||
+      (product.precio_tipo === 'variantes' &&
+        product.precio_valor_max > product.precio_valor);
+    if (mostrarDesde) {
       return (
         <span>
           <span className="text-gris-medio text-xs">Desde </span>
@@ -179,16 +187,14 @@ const ProductList = () => {
             <label className="block text-sm font-medium text-texto mb-2">
               Categoría
             </label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-            >
-              <option value="all">Todas las categorías</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-              ))}
-            </select>
+            <CategoriaSearchSelect
+              categorias={categories}
+              value={selectedCategory === "all" ? "" : selectedCategory}
+              onChange={(value) => setSelectedCategory(value || "all")}
+              getOptionLabel={(cat) => cat.nombre}
+              placeholder="Buscar categoría..."
+              clearLabel="Todas las categorías"
+            />
           </div>
 
           {/* Filtro estado */}

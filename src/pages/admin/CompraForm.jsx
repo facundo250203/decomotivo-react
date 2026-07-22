@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
+import ProveedorSearchSelect from "../../components/admin/ProveedorSearchSelect";
+import ProductSearchSelect from "../../components/admin/ProductSearchSelect";
 import {
   comprasAPI,
   proveedoresAPI,
@@ -120,8 +122,8 @@ const CompraForm = () => {
     });
     if (itemSinMedida) {
       toast.warning(
-        "Falta elegir la medida",
-        "Uno de los productos tiene variantes -- elegí qué medida estás reponiendo.",
+        "Falta elegir la variante",
+        "Uno de los productos tiene variantes -- elegí qué variante estás reponiendo.",
       );
       return;
     }
@@ -233,18 +235,13 @@ const CompraForm = () => {
                     <label className="block text-sm text-gray-600 mb-1">
                       Proveedor *
                     </label>
-                    <select
+                    <ProveedorSearchSelect
+                      proveedores={proveedores}
                       value={proveedorId}
-                      onChange={(e) => setProveedorId(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="">Seleccionar proveedor</option>
-                      {proveedores.map((prov) => (
-                        <option key={prov.id} value={prov.id}>
-                          {prov.nombre}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setProveedorId}
+                      getOptionLabel={(prov) => prov.nombre}
+                      placeholder="Buscar proveedor..."
+                    />
                     {proveedores.length === 0 && (
                       <p className="text-xs text-gray-500 mt-1">
                         No hay proveedores cargados.{" "}
@@ -308,36 +305,29 @@ const CompraForm = () => {
                             <label className="block text-sm text-gray-600 mb-1">
                               Producto *
                             </label>
-                            <select
+                            <ProductSearchSelect
+                              productos={productos}
                               value={item.producto_id}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "producto_id",
-                                  e.target.value,
-                                )
+                              onChange={(value) =>
+                                handleItemChange(index, "producto_id", value)
                               }
-                              required
-                              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
-                            >
-                              <option value="">Seleccionar producto</option>
-                              {productos.map((prod) => (
-                                <option key={prod.id} value={prod.id}>
-                                  {prod.titulo}{" "}
-                                  {prod.precio_tipo === "variantes"
-                                    ? `(${prod.variantes?.length || 0} medidas)`
+                              getOptionLabel={(prod) =>
+                                `${prod.titulo} ${
+                                  prod.precio_tipo === "variantes"
+                                    ? `(${prod.variantes?.length || 0} variantes)`
                                     : prod.controla_stock
                                       ? `(stock actual: ${prod.cantidad})`
-                                      : "(sin stock)"}
-                                </option>
-                              ))}
-                            </select>
+                                      : "(sin stock)"
+                                }`
+                              }
+                              placeholder="Buscar producto..."
+                            />
                           </div>
 
                           {productoSeleccionado?.precio_tipo === "variantes" && (
                             <div className="md:col-span-2">
                               <label className="block text-sm text-gray-600 mb-1">
-                                Medida *
+                                Variante *
                               </label>
                               <select
                                 value={item.producto_variante_id}
@@ -351,7 +341,7 @@ const CompraForm = () => {
                                 required
                                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
                               >
-                                <option value="">Seleccionar medida</option>
+                                <option value="">Seleccionar variante</option>
                                 {productoSeleccionado.variantes
                                   ?.filter((v) => v.activo)
                                   .map((v) => (

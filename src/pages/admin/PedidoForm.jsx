@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ProductSearchSelect from "../../components/admin/ProductSearchSelect";
+import ClienteSearchSelect from "../../components/admin/ClienteSearchSelect";
 import {
   adminOrdersAPI,
   adminProductsAPI,
@@ -30,15 +31,23 @@ const PedidoForm = () => {
     notas: "",
   });
 
-  const [items, setItems] = useState([
-    {
-      producto_id: "",
-      producto_variante_id: "",
-      descripcion: "",
-      precio_unitario: 0,
-      cantidad: 1,
-    },
-  ]);
+  // vender_por_caja/cajas/precio_total_caja: estado transitorio de este
+  // form (ver migración 027 y el mismo patrón en VentaDirectaForm) -- solo
+  // sirven para calcular cantidad y precio_unitario antes de enviar,
+  // cajas_vendidas es el único de estos 4 que de verdad viaja al backend.
+  const itemVacio = () => ({
+    producto_id: "",
+    producto_variante_id: "",
+    descripcion: "",
+    precio_unitario: 0,
+    cantidad: 1,
+    vender_por_caja: false,
+    cajas: 1,
+    precio_total_caja: 0,
+    cajas_vendidas: null,
+  });
+
+  const [items, setItems] = useState([itemVacio()]);
 
   useEffect(() => {
     fetchProductos();
@@ -71,8 +80,7 @@ const PedidoForm = () => {
     }
   };
 
-  const handleClienteChange = (e) => {
-    const clienteId = e.target.value;
+  const handleClienteChange = (clienteId) => {
     const cliente = clientes.find((c) => c.id === parseInt(clienteId));
     setFormData((prev) => ({
       ...prev,
@@ -99,6 +107,10 @@ const PedidoForm = () => {
     if (field === "producto_id") {
       const producto = productos.find((p) => p.id === parseInt(value));
       newItems[index].producto_variante_id = "";
+      // Cambiar de producto invalida cualquier venta por caja ya cargada.
+      newItems[index].vender_por_caja = false;
+      newItems[index].cantidad = 1;
+      newItems[index].cajas_vendidas = null;
       if (producto && producto.precio_tipo !== "variantes" && producto.precio_valor) {
         newItems[index].precio_unitario = producto.precio_valor;
       }
@@ -117,20 +129,50 @@ const PedidoForm = () => {
       }
     }
 
+    if (field === "vender_por_caja") {
+      const producto = productos.find(
+        (p) => p.id === parseInt(newItems[index].producto_id),
+      );
+      if (value && producto?.unidades_por_caja) {
+        newItems[index].cajas = 1;
+        newItems[index].cantidad = producto.unidades_por_caja;
+        newItems[index].precio_total_caja = producto.precio_caja;
+        newItems[index].precio_unitario =
+          producto.precio_caja / producto.unidades_por_caja;
+        newItems[index].cajas_vendidas = 1;
+      } else {
+        newItems[index].cantidad = 1;
+        newItems[index].precio_unitario = producto?.precio_valor || 0;
+        newItems[index].cajas_vendidas = null;
+      }
+    }
+
+    if (field === "cajas") {
+      const producto = productos.find(
+        (p) => p.id === parseInt(newItems[index].producto_id),
+      );
+      const cajas = parseInt(value) || 0;
+      if (producto?.unidades_por_caja) {
+        const cantidad = cajas * producto.unidades_por_caja;
+        const precioTotalCaja = cajas * producto.precio_caja;
+        newItems[index].cantidad = cantidad;
+        newItems[index].precio_total_caja = precioTotalCaja;
+        newItems[index].precio_unitario = cantidad > 0 ? precioTotalCaja / cantidad : 0;
+        newItems[index].cajas_vendidas = cajas;
+      }
+    }
+
+    if (field === "precio_total_caja") {
+      const cantidad = parseInt(newItems[index].cantidad) || 0;
+      const precioTotalCaja = parseFloat(value) || 0;
+      newItems[index].precio_unitario = cantidad > 0 ? precioTotalCaja / cantidad : 0;
+    }
+
     setItems(newItems);
   };
 
   const agregarItem = () => {
-    setItems([
-      ...items,
-      {
-        producto_id: "",
-        producto_variante_id: "",
-        descripcion: "",
-        precio_unitario: 0,
-        cantidad: 1,
-      },
-    ]);
+    setItems([...items, itemVacio()]);
   };
 
   const eliminarItem = (index) => {
@@ -177,8 +219,8 @@ const PedidoForm = () => {
     });
     if (itemSinMedida) {
       toast.warning(
-        "Falta elegir la medida",
-        "Uno de los productos tiene variantes -- elegí una medida antes de guardar.",
+        "Falta elegir la variante",
+        "Uno de los productos tiene variantes -- elegí una variante antes de guardar.",
       );
       return;
     }
@@ -242,18 +284,13 @@ const PedidoForm = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Cliente registrado (opcional)
                     </label>
-                    <select
+                    <ClienteSearchSelect
+                      clientes={clientes}
                       value={formData.cliente_id}
                       onChange={handleClienteChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    >
-                      <option value="">Sin vincular / cliente nuevo</option>
-                      {clientes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nombre_completo}
-                        </option>
-                      ))}
-                    </select>
+                      getOptionLabel={(c) => c.nombre_completo}
+                      placeholder="Sin vincular / cliente nuevo -- buscar cliente..."
+                    />
                     <p className="text-xs text-gray-500 mt-1">
                       Si lo elegís, completa el nombre y teléfono solo — igual
                       podés editarlos.
@@ -335,8 +372,14 @@ const PedidoForm = () => {
                       return (
                       <div key={index} className="border rounded-lg p-4">
                         <div className="flex justify-between items-start mb-3">
-                          <span className="font-medium text-gray-700">
+                          <span className="font-medium text-gray-700 flex items-center gap-2">
                             Producto {index + 1}
+                            {item.vender_por_caja && (
+                              <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                <i className="fas fa-box mr-1"></i>
+                                Caja x{item.cajas}
+                              </span>
+                            )}
                           </span>
                           {items.length > 1 && (
                             <button
@@ -367,12 +410,17 @@ const PedidoForm = () => {
                                   prod.precio_valor
                                     ? formatPrecio(prod.precio_valor)
                                     : prod.precio_tipo === "desde" ||
-                                        prod.precio_tipo === "variantes"
+                                        (prod.precio_tipo === "variantes" &&
+                                          prod.precio_valor_max >
+                                            prod.precio_valor)
                                       ? `Desde ${formatPrecio(prod.precio_valor)}`
-                                      : "Consultar"
+                                      : prod.precio_tipo === "variantes" &&
+                                          prod.precio_valor
+                                        ? formatPrecio(prod.precio_valor)
+                                        : "Consultar"
                                 } ${
                                   prod.precio_tipo === "variantes"
-                                    ? `(${prod.variantes?.length || 0} medidas)`
+                                    ? `(${prod.variantes?.length || 0} variantes)`
                                     : prod.controla_stock
                                       ? `(stock: ${prod.cantidad})`
                                       : "(sin stock)"
@@ -384,7 +432,7 @@ const PedidoForm = () => {
                           {productoSeleccionado?.precio_tipo === "variantes" && (
                             <div className="md:col-span-2">
                               <label className="block text-sm text-gray-600 mb-1">
-                                Medida *
+                                Variante *
                               </label>
                               <select
                                 value={item.producto_variante_id}
@@ -398,7 +446,7 @@ const PedidoForm = () => {
                                 required
                                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
                               >
-                                <option value="">Seleccionar medida</option>
+                                <option value="">Seleccionar variante</option>
                                 {productoSeleccionado.variantes
                                   ?.filter((v) => v.activo)
                                   .map((v) => (
@@ -458,59 +506,128 @@ const PedidoForm = () => {
                             />
                           </div>
 
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              Precio Unitario *
-                            </label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={item.precio_unitario}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "precio_unitario",
-                                  e.target.value,
-                                )
-                              }
-                              required
-                              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
-                            />
-                            {productoSeleccionado?.precio_tipo ===
-                              "consultar" && (
-                              <p className="text-xs text-orange-600 mt-1">
-                                Este producto es &quot;a consultar&quot; —
-                                ingresá el precio acordado con el cliente.
-                              </p>
-                            )}
-                            {productoSeleccionado?.precio_tipo === "desde" && (
-                              <p className="text-xs text-orange-600 mt-1">
-                                Precio de referencia (desde). Ajustalo si
-                                acordaste otro precio con el cliente.
-                              </p>
-                            )}
-                          </div>
+                          {/* Vender por caja (ver migración 027): solo
+                              aparece si el producto elegido tiene
+                              unidades_por_caja cargado en su ficha. */}
+                          {productoSeleccionado?.unidades_por_caja && (
+                            <div className="md:col-span-2">
+                              <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                                <input
+                                  type="checkbox"
+                                  checked={item.vender_por_caja}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "vender_por_caja",
+                                      e.target.checked,
+                                    )
+                                  }
+                                  className="w-4 h-4 text-primary rounded focus:ring-primary"
+                                />
+                                Vender por caja (x{productoSeleccionado.unidades_por_caja} unidades)
+                              </label>
+                            </div>
+                          )}
 
-                          <div>
-                            <label className="block text-sm text-gray-600 mb-1">
-                              Cantidad *
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.cantidad}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "cantidad",
-                                  e.target.value,
-                                )
-                              }
-                              required
-                              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
-                            />
-                          </div>
+                          {item.vender_por_caja ? (
+                            <>
+                              <div>
+                                <label className="block text-sm text-gray-600 mb-1">
+                                  Cantidad de cajas *
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.cajas}
+                                  onChange={(e) =>
+                                    handleItemChange(index, "cajas", e.target.value)
+                                  }
+                                  required
+                                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm text-gray-600 mb-1">
+                                  Precio total de las cajas *
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.precio_total_caja}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "precio_total_caja",
+                                      e.target.value,
+                                    )
+                                  }
+                                  required
+                                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                                />
+                              </div>
+                              <p className="md:col-span-2 text-xs text-gray-500">
+                                = {item.cantidad} unidades a{" "}
+                                {formatPrecio(item.precio_unitario)} c/u
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <label className="block text-sm text-gray-600 mb-1">
+                                  Precio Unitario *
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.precio_unitario}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "precio_unitario",
+                                      e.target.value,
+                                    )
+                                  }
+                                  required
+                                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                                />
+                                {productoSeleccionado?.precio_tipo ===
+                                  "consultar" && (
+                                  <p className="text-xs text-orange-600 mt-1">
+                                    Este producto es &quot;a consultar&quot; —
+                                    ingresá el precio acordado con el cliente.
+                                  </p>
+                                )}
+                                {productoSeleccionado?.precio_tipo === "desde" && (
+                                  <p className="text-xs text-orange-600 mt-1">
+                                    Precio de referencia (desde). Ajustalo si
+                                    acordaste otro precio con el cliente.
+                                  </p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-sm text-gray-600 mb-1">
+                                  Cantidad *
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.cantidad}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "cantidad",
+                                      e.target.value,
+                                    )
+                                  }
+                                  required
+                                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                                />
+                              </div>
+                            </>
+                          )}
 
                           <div className="md:col-span-2 text-right">
                             <span className="text-sm text-gray-600">
