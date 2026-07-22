@@ -172,7 +172,7 @@ const PedidoForm = () => {
   };
 
   const agregarItem = () => {
-    setItems([...items, itemVacio()]);
+    setItems([itemVacio(), ...items]);
   };
 
   const eliminarItem = (index) => {

@@ -70,8 +70,8 @@ const CompraForm = () => {
 
   const agregarItem = () => {
     setItems([
-      ...items,
       { producto_id: "", producto_variante_id: "", costo_unitario: 0, cantidad: 1 },
+      ...items,
     ]);
   };
 

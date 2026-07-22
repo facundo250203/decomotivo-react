@@ -197,11 +197,11 @@ const VentaDirectaForm = () => {
   };
 
   const agregarItem = () => {
-    setItems([...items, itemVacio()]);
+    setItems([itemVacio(), ...items]);
   };
 
   const agregarItemManual = () => {
-    setItems([...items, { ...itemVacio(), es_manual: true }]);
+    setItems([{ ...itemVacio(), es_manual: true }, ...items]);
   };
 
   // Cambia una línea entre catálogo <-> manual sin perder cantidad/precio ya
@@ -227,7 +227,7 @@ const VentaDirectaForm = () => {
     const newItems = [...items];
     newItems[itemIndex] = {
       ...newItems[itemIndex],
-      extras: [...(newItems[itemIndex].extras || []), extraVacio()],
+      extras: [extraVacio(), ...(newItems[itemIndex].extras || [])],
     };
     setItems(newItems);
   };
