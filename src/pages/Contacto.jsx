@@ -103,8 +103,8 @@ const Contacto = () => {
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-secondary">Horario de Atención</h3>
-                  <p className="text-gris-medio">Viernes: 17:00 - 21:00</p>
-                  <p className="text-gris-medio">Sábados: 10:00 - 20:00</p>
+                  <p className="text-gris-medio">Lunes a Sábado: 9:00 - 21:00</p>
+                  <p className="text-gris-medio">Domingos: horario variable, consultar por WhatsApp</p>
                 </div>
               </div>
 
@@ -154,7 +154,7 @@ const Contacto = () => {
             {/* Mapa */}
             <div className="h-96 lg:h-auto rounded-xl overflow-hidden shadow-custom">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3560.1234567890123!2d-65.2176!3d-26.8367!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjbCsDUwJzEyLjEiUyA2NcKwMTMnMDMuNCJX!5e0!3m2!1ses!2sar!4v1234567890"
+                src="https://www.google.com/maps?q=Mendoza+2372%2C+San+Miguel+de+Tucum%C3%A1n%2C+Tucum%C3%A1n%2C+Argentina&output=embed"
                 width="100%"
                 height="100%"
                 style={{ border: 0, minHeight: '400px' }}
