@@ -5,6 +5,7 @@ const {
   getResumenSemanal,
   getPedidosPagoPendiente,
   getPedidosEstancados,
+  getClientesConDeuda,
 } = require("../controllers/n8nController");
 
 // Todas protegidas con API key (uso máquina-a-máquina, n8n) -- mismo patrón
@@ -12,5 +13,6 @@ const {
 router.get("/resumen-semanal", requireApiKey, getResumenSemanal);
 router.get("/pedidos-pago-pendiente", requireApiKey, getPedidosPagoPendiente);
 router.get("/pedidos-estancados", requireApiKey, getPedidosEstancados);
+router.get("/clientes-deuda-pendiente", requireApiKey, getClientesConDeuda);
 
 module.exports = router;

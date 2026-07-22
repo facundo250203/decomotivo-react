@@ -1,11 +1,26 @@
 const { promisePool } = require("../config/database");
-const { getTopProductos } = require("./reportesController");
+const {
+  getTopProductos,
+  getStockBajo,
+  getPedidosPagoPendiente: fetchPedidosPagoPendiente,
+  getPedidosEstancados: fetchPedidosEstancados,
+  getClientesConDeuda: fetchClientesConDeuda,
+} = require("./reportesController");
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+// Intl.DateTimeFormat con timeZone explícito, no toISOString() -- da la
+// fecha en UTC, y desde las 21:00 hora Argentina ya cruzó la medianoche UTC
+// y devuelve "mañana" (mismo bug ya corregido en cajaController.js/
+// Dashboard.jsx). Independiente de en qué TZ corra el proceso de Node.
+const hoyISO = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  }).format(new Date());
 const haceDias = (dias) => {
   const d = new Date();
   d.setDate(d.getDate() - dias);
-  return d.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  }).format(d);
 };
 
 // ============================================
@@ -28,6 +43,15 @@ const getResumenSemanal = async (req, res) => {
 
     const topProductos = await getTopProductos(desde, hasta);
 
+    // stock_bajo/clientes_con_deuda son estado ACTUAL (no del rango
+    // desde/hasta) -- mismo criterio que ya usa getResumen del dashboard.
+    // Sin esto, el resumen semanal solo tenía números de venta, nada que un
+    // resumen narrado por IA pudiera destacar como alerta accionable.
+    const [stockBajo, clientesConDeuda] = await Promise.all([
+      getStockBajo(),
+      fetchClientesConDeuda(),
+    ]);
+
     const [ultimoCierre] = await promisePool.query(
       `SELECT fecha, acumulado_efectivo, acumulado_transferencia
        FROM cierres_caja ORDER BY fecha DESC LIMIT 1`,
@@ -43,6 +67,8 @@ const getResumenSemanal = async (req, res) => {
           total: parseFloat(ventasRows[0].total),
         },
         top_productos: topProductos.slice(0, 5),
+        stock_bajo: stockBajo,
+        clientes_con_deuda: clientesConDeuda,
         ultimo_cierre_caja:
           ultimoCierre.length > 0
             ? {
@@ -71,31 +97,12 @@ const getResumenSemanal = async (req, res) => {
 // ============================================
 const getPedidosPagoPendiente = async (req, res) => {
   try {
-    const [rows] = await promisePool.query(
-      `SELECT p.id, p.cliente_nombre, p.cliente_telefono, p.total,
-        COALESCE(SUM(v.monto_total), 0) as total_pagado,
-        p.total - COALESCE(SUM(v.monto_total), 0) as saldo_pendiente,
-        p.fecha_senado
-       FROM pedidos p
-       LEFT JOIN ventas v ON v.pedido_id = p.id
-       WHERE p.estado = 'senado'
-       GROUP BY p.id, p.cliente_nombre, p.cliente_telefono, p.total, p.fecha_senado
-       HAVING saldo_pendiente > 0.01
-       ORDER BY p.fecha_senado ASC`,
-    );
+    const data = await fetchPedidosPagoPendiente();
 
     res.json({
       success: true,
-      count: rows.length,
-      data: rows.map((r) => ({
-        id: r.id,
-        cliente_nombre: r.cliente_nombre,
-        cliente_telefono: r.cliente_telefono,
-        total: parseFloat(r.total),
-        total_pagado: parseFloat(r.total_pagado),
-        saldo_pendiente: parseFloat(r.saldo_pendiente),
-        fecha_senado: r.fecha_senado,
-      })),
+      count: data.length,
+      data,
     });
   } catch (error) {
     console.error("Error obteniendo pedidos con pago pendiente:", error);
@@ -114,27 +121,12 @@ const getPedidosPagoPendiente = async (req, res) => {
 const getPedidosEstancados = async (req, res) => {
   try {
     const dias = parseInt(req.query.dias) || 3;
-
-    const [rows] = await promisePool.query(
-      `SELECT id, cliente_nombre, cliente_telefono, total, fecha_pedido,
-        DATEDIFF(NOW(), fecha_pedido) as dias_esperando
-       FROM pedidos
-       WHERE estado = 'solicitado' AND fecha_pedido < DATE_SUB(NOW(), INTERVAL ? DAY)
-       ORDER BY fecha_pedido ASC`,
-      [dias],
-    );
+    const data = await fetchPedidosEstancados(dias);
 
     res.json({
       success: true,
-      count: rows.length,
-      data: rows.map((r) => ({
-        id: r.id,
-        cliente_nombre: r.cliente_nombre,
-        cliente_telefono: r.cliente_telefono,
-        total: parseFloat(r.total),
-        fecha_pedido: r.fecha_pedido,
-        dias_esperando: r.dias_esperando,
-      })),
+      count: data.length,
+      data,
     });
   } catch (error) {
     console.error("Error obteniendo pedidos estancados:", error);
@@ -146,8 +138,34 @@ const getPedidosEstancados = async (req, res) => {
   }
 };
 
+// ============================================
+// CLIENTES CON DEUDA PENDIENTE (cuenta corriente > 0, venga de un pedido
+// señado o de una venta directa fiada -- ver el comentario de
+// getClientesConDeuda en reportesController.js)
+// GET /api/n8n/clientes-deuda-pendiente
+// ============================================
+const getClientesConDeuda = async (req, res) => {
+  try {
+    const data = await fetchClientesConDeuda();
+
+    res.json({
+      success: true,
+      count: data.length,
+      data,
+    });
+  } catch (error) {
+    console.error("Error obteniendo clientes con deuda pendiente:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al obtener clientes con deuda pendiente",
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   getResumenSemanal,
   getPedidosPagoPendiente,
   getPedidosEstancados,
+  getClientesConDeuda,
 };
