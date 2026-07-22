@@ -8,6 +8,7 @@ const CAMPOS_EDITABLES_PROVEEDOR = [
   "email",
   "instagram",
   "facebook",
+  "sitio_web",
   "direccion",
   "notas",
 ];
@@ -65,8 +66,16 @@ const getProveedorById = async (req, res) => {
 // ============================================
 const createProveedor = async (req, res) => {
   try {
-    const { nombre, telefono, email, instagram, facebook, direccion, notas } =
-      req.body;
+    const {
+      nombre,
+      telefono,
+      email,
+      instagram,
+      facebook,
+      sitio_web,
+      direccion,
+      notas,
+    } = req.body;
 
     if (!nombre) {
       return res.status(400).json({
@@ -76,14 +85,15 @@ const createProveedor = async (req, res) => {
     }
 
     const [result] = await promisePool.query(
-      `INSERT INTO proveedores (nombre, telefono, email, instagram, facebook, direccion, notas)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO proveedores (nombre, telefono, email, instagram, facebook, sitio_web, direccion, notas)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         nombre,
         telefono || null,
         email || null,
         instagram || null,
         facebook || null,
+        sitio_web || null,
         direccion || null,
         notas || null,
       ],

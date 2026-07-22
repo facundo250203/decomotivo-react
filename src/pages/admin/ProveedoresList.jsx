@@ -89,7 +89,7 @@ const ProveedoresList = () => {
                     Teléfono
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
+                    Notas
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Redes
@@ -108,8 +108,8 @@ const ProveedoresList = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {proveedor.telefono || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {proveedor.email || "-"}
+                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                      {proveedor.notas || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex flex-col gap-1">
@@ -125,17 +125,26 @@ const ProveedoresList = () => {
                             {proveedor.facebook}
                           </span>
                         )}
-                        {!proveedor.instagram && !proveedor.facebook && "-"}
+                        {proveedor.sitio_web && (
+                          <span className="flex items-center gap-1">
+                            <i className="fas fa-globe text-gray-500"></i>
+                            {proveedor.sitio_web}
+                          </span>
+                        )}
+                        {!proveedor.instagram &&
+                          !proveedor.facebook &&
+                          !proveedor.sitio_web &&
+                          "-"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-3">
                         <Link
-                          to={`/admin/proveedores/editar/${proveedor.id}`}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Editar"
+                          to={`/admin/proveedores/${proveedor.id}`}
+                          className="text-secondary hover:text-primary"
+                          title="Ver datos"
                         >
-                          <i className="fas fa-edit"></i>
+                          <i className="fas fa-eye"></i>
                         </Link>
                         <button
                           onClick={() =>

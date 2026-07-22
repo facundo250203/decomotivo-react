@@ -20,6 +20,7 @@ const ProveedorForm = () => {
     email: "",
     instagram: "",
     facebook: "",
+    sitio_web: "",
     direccion: "",
     notas: "",
   });
@@ -42,6 +43,7 @@ const ProveedorForm = () => {
           email: p.email || "",
           instagram: p.instagram || "",
           facebook: p.facebook || "",
+          sitio_web: p.sitio_web || "",
           direccion: p.direccion || "",
           notas: p.notas || "",
         });
@@ -182,6 +184,20 @@ const ProveedorForm = () => {
                 placeholder="Nombre de la página o perfil"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-texto mb-2">
+              Sitio web
+            </label>
+            <input
+              type="text"
+              name="sitio_web"
+              value={formData.sitio_web}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gris-claro rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              placeholder="https://..."
+            />
           </div>
 
           <div>
