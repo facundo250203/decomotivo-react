@@ -26,6 +26,12 @@ const {
   deleteComboItem,
   CAMPOS_EDITABLES_COMBO_ITEM
 } = require('../controllers/productoComboController');
+const {
+  getAllCategoriasAdmin,
+  createCategoria,
+  updateCategoria,
+  CAMPOS_EDITABLES_CATEGORIA,
+} = require('../controllers/adminCategoriaController');
 
 // ============================================
 // TODAS LAS RUTAS REQUIEREN AUTENTICACIÓN
@@ -95,6 +101,20 @@ router.put(
 
 // DELETE /api/admin/productos/:comboId/combo-items/:comboItemId - Quitar componente (hard delete)
 router.delete('/productos/:comboId/combo-items/:comboItemId', deleteComboItem);
+
+// ============================================
+// CATEGORÍAS
+// ============================================
+
+// GET /api/admin/categorias - Listar todas (sin filtro de activa)
+router.get('/categorias', getAllCategoriasAdmin);
+
+// POST /api/admin/categorias - Crear categoría
+router.post('/categorias', createCategoria);
+
+// PUT /api/admin/categorias/:id - Actualizar categoría (también usado para
+// reordenar: dos llamadas intercambiando `orden` entre dos filas vecinas)
+router.put('/categorias/:id', sanitizeBody(CAMPOS_EDITABLES_CATEGORIA), updateCategoria);
 
 // ============================================
 // EXPORTAR

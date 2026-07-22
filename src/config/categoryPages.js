@@ -4,14 +4,84 @@
 // tabla `categorias`. El slug es la clave y debe coincidir con el de la DB.
 
 const categoryPages = {
-  "mates-vasos": {
+  mates: {
     icon: "fa-mug-hot",
     title: "Mates de Algarrobo Personalizados en Tucumán | DecoMotivo",
     description:
-      "Mates de algarrobo personalizados en Tucumán. Incluyen bombilla de aluminio. Vasos ferneteros personalizables. Grabado láser. Envíos a toda Argentina. ¡Consultá precios!",
+      "Mates de algarrobo personalizados en Tucumán. Incluyen bombilla de aluminio. Grabado láser. Envíos a toda Argentina. ¡Consultá precios!",
     keywords:
-      "mates tucumán, mates personalizados tucumán, mates algarrobo, vasos ferneteros tucumán, mates con bombilla, jarras nórdicas, DecoMotivo, San Miguel de Tucumán, mates argentina",
+      "mates tucumán, mates personalizados tucumán, mates algarrobo, mates con bombilla, DecoMotivo, San Miguel de Tucumán, mates argentina",
     ogImage: "https://www.decomotivo.com.ar/images/mates-bg.jpg",
+  },
+  // Tazas y Vasos, Descartables, Cumpleaños, Bijouterie, Cosmética Capilar,
+  // Mercería, Bienestar y Perfumería y Belleza: contenido nuevo (categorías
+  // agregadas en migración 028), conviene que el dueño lo revise/ajuste, no
+  // vienen de un texto anterior. Sin ogImage propia todavía -- cae al
+  // fallback genérico de getCategorySeo hasta que se suba una imagen de
+  // fondo real para cada una.
+  "tazas-vasos": {
+    icon: "fa-mug-saucer",
+    title: "Tazas y Vasos Personalizados en Tucumán | DecoMotivo",
+    description:
+      "Tazas y vasos personalizados en Tucumán, ideales para regalar o para uso diario. Diseños a pedido. ¡Consultá precios!",
+    keywords:
+      "tazas personalizadas tucumán, vasos personalizados tucumán, vasos ferneteros tucumán, jarras nórdicas tucumán, DecoMotivo, San Miguel de Tucumán",
+  },
+  descartables: {
+    icon: "fa-box-open",
+    title: "Artículos Descartables en Tucumán | DecoMotivo",
+    description:
+      "Vasos, platos y cubiertos descartables en Tucumán. Ideal para cumpleaños, eventos y reuniones. ¡Consultanos disponibilidad!",
+    keywords:
+      "descartables tucumán, vasos descartables tucumán, platos descartables tucumán, cotillón tucumán, DecoMotivo, San Miguel de Tucumán",
+  },
+  cumpleanos: {
+    icon: "fa-birthday-cake",
+    title: "Artículos para Cumpleaños en Tucumán | DecoMotivo",
+    description:
+      "Todo para tu cumpleaños en Tucumán: cotillón, decoración y artículos para fiestas en un solo lugar. ¡Consultanos!",
+    keywords:
+      "cumpleaños tucumán, cotillón tucumán, artículos fiesta tucumán, decoración cumpleaños tucumán, DecoMotivo, San Miguel de Tucumán",
+  },
+  bijouterie: {
+    icon: "fa-gem",
+    title: "Bijouterie en Tucumán | DecoMotivo",
+    description:
+      "Bijouterie y accesorios en Tucumán: aros, collares, pulseras y anillos. Encontrá tu estilo en DecoMotivo. ¡Consultanos!",
+    keywords:
+      "bijouterie tucumán, accesorios tucumán, aros tucumán, collares tucumán, DecoMotivo, San Miguel de Tucumán",
+  },
+  "cosmetica-capilar": {
+    icon: "fa-pump-soap",
+    title: "Cosmética Capilar en Tucumán | DecoMotivo",
+    description:
+      "Productos de cosmética capilar en Tucumán: tratamientos, cremas y accesorios para el cuidado del cabello. ¡Consultanos disponibilidad!",
+    keywords:
+      "cosmética capilar tucumán, cuidado del cabello tucumán, tratamientos capilares tucumán, DecoMotivo, San Miguel de Tucumán",
+  },
+  merceria: {
+    icon: "fa-cut",
+    title: "Mercería en Tucumán | DecoMotivo",
+    description:
+      "Artículos de mercería en Tucumán: hilos, botones, cintas y accesorios de costura para tus proyectos. ¡Consultanos!",
+    keywords:
+      "mercería tucumán, artículos de costura tucumán, hilos tucumán, botones tucumán, DecoMotivo, San Miguel de Tucumán",
+  },
+  bienestar: {
+    icon: "fa-spa",
+    title: "Bienestar en Tucumán | Incienso, Sales y Flores de Bach | DecoMotivo",
+    description:
+      "Incienso, lámparas de sal, sales y Flores de Bach en Tucumán. Todo para tu espacio de bienestar y relajación. ¡Consultanos!",
+    keywords:
+      "bienestar tucumán, incienso tucumán, lámparas de sal tucumán, flores de bach tucumán, sales tucumán, DecoMotivo, San Miguel de Tucumán",
+  },
+  "perfumeria-belleza": {
+    icon: "fa-spray-can",
+    title: "Perfumería y Belleza en Tucumán | DecoMotivo",
+    description:
+      "Perfumes de ambiente, esmaltes, maquillaje y máscaras faciales en Tucumán. Todo para tu rutina de belleza. ¡Consultanos!",
+    keywords:
+      "perfumería tucumán, belleza tucumán, perfumes de ambiente tucumán, esmaltes tucumán, maquillaje tucumán, DecoMotivo, San Miguel de Tucumán",
   },
   tablas: {
     icon: "fa-utensils",
