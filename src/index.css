@@ -57,6 +57,42 @@
   }
 }
 
+/* Panel admin: letra más grande y grises más oscuros para mejor lectura
+   (pedido explícito -- lo va a usar una persona mayor). Un `font-size` en
+   `.admin-panel` no alcanza acá: las utilidades de Tailwind (text-sm, etc.)
+   usan `rem`, que siempre se calcula contra el `<html>` raíz, nunca contra
+   un ancestro -- por eso se sobreescribe cada utilidad puntual en vez de
+   subir el font-size del contenedor. Sube dos escalones (xs/sm/base) que
+   son los tamaños de lectura más chicos; los títulos (lg en adelante) ya
+   eran legibles y quedan igual. Los grises quedan más oscuros que el
+   original de Tailwind/gris-medio, pero lejos del negro puro (#1a1a1a es
+   el color de texto normal del sitio). Alcance solo admin -- la tienda
+   pública comparte el mismo index.css y no debe cambiar. */
+.admin-panel .text-xs {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.admin-panel .text-sm {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.admin-panel .text-base {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+.admin-panel .text-gray-400 {
+  color: #6b7280;
+}
+.admin-panel .text-gray-500 {
+  color: #4b5563;
+}
+.admin-panel .text-gray-600 {
+  color: #374151;
+}
+.admin-panel .text-gris-medio {
+  color: #4d4d4d;
+}
+
 @keyframes slide-in {
   from { transform: translateX(100%); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }

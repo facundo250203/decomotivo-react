@@ -29,6 +29,11 @@ const AdminLayout = ({ children }) => {
       path: '/admin/productos'
     },
     {
+      name: 'Categorías',
+      icon: 'fa-th-large',
+      path: '/admin/categorias'
+    },
+    {
       name: 'Pedidos',
       icon: 'fa-shopping-cart',
       path: '/admin/pedidos'
@@ -78,7 +83,7 @@ const AdminLayout = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="admin-panel min-h-screen bg-gray-100 flex">
       {/* Sidebar */}
       <aside className={`bg-secondary text-white transition-all duration-300 ${
         sidebarOpen ? 'w-64' : 'w-20'
