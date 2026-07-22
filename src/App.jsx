@@ -33,16 +33,20 @@ import PedidoDetalle from "./pages/admin/PedidoDetalle";
 import PedidoForm from "./pages/admin/PedidoForm";
 import VentasList from "./pages/admin/VentasList";
 import VentaDirectaForm from "./pages/admin/VentaDirectaForm";
+import VentaDetalle from "./pages/admin/VentaDetalle";
 import SalidasList from "./pages/admin/SalidasList";
 import SalidaForm from "./pages/admin/SalidaForm";
 import CajaDashboard from "./pages/admin/CajaDashboard";
 import ProveedoresList from "./pages/admin/ProveedoresList";
 import ProveedorForm from "./pages/admin/ProveedorForm";
+import ProveedorDetalle from "./pages/admin/ProveedorDetalle";
 import ComprasList from "./pages/admin/ComprasList";
 import CompraForm from "./pages/admin/CompraForm";
 import ClientesList from "./pages/admin/ClientesList";
 import ClienteForm from "./pages/admin/ClienteForm";
 import ClienteDetalle from "./pages/admin/ClienteDetalle";
+import CategoriasList from "./pages/admin/CategoriasList";
+import CategoriaForm from "./pages/admin/CategoriaForm";
 import { ToastProvider } from "./context/ToastContext";
 
 function App() {
@@ -173,6 +177,15 @@ function App() {
                 }
               />
 
+              <Route
+                path="/admin/ventas/:id"
+                element={
+                  <ProtectedRoute>
+                    <VentaDetalle />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* ========== SALIDAS ========== */}
 
               <Route
@@ -253,6 +266,15 @@ function App() {
                 }
               />
 
+              <Route
+                path="/admin/proveedores/:id"
+                element={
+                  <ProtectedRoute>
+                    <ProveedorDetalle />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* ========== COMPRAS ========== */}
 
               <Route
@@ -307,6 +329,35 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ClienteDetalle />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ========== CATEGORÍAS ========== */}
+
+              <Route
+                path="/admin/categorias"
+                element={
+                  <ProtectedRoute>
+                    <CategoriasList />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/categorias/nueva"
+                element={
+                  <ProtectedRoute>
+                    <CategoriaForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/admin/categorias/editar/:id"
+                element={
+                  <ProtectedRoute>
+                    <CategoriaForm />
                   </ProtectedRoute>
                 }
               />
@@ -387,7 +438,7 @@ function App() {
                 }
               />
 
-              {/* Página de categoría (dinámica: tablas, mates-vasos, mdf,
+              {/* Página de categoría (dinámica: tablas, mates, mdf,
                   otros, combos, decoraciones, libreria, tecnologia, y
                   cualquier categoría nueva que se agregue a la DB) */}
               <Route
