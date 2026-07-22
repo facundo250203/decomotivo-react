@@ -148,6 +148,49 @@ const getClientesConDeuda = async () => {
 };
 
 // ============================================
+// CLIENTES CON DEUDA DE MOSTRADOR (excluye SOLO la deuda que sigue activa
+// en pedidos-pago-pendiente). Mismo cálculo que getClientesConDeuda, pero
+// descarta movimientos cuya venta viene de un pedido TODAVÍA en estado
+// 'senado' -- esa deuda ya se sigue aparte en pedidos-pago-pendiente, con
+// su propia cadencia de cobro (la entrega del pedido), distinta de un
+// fiado de mostrador que se espera cobrar pronto. Sin este filtro, el
+// mismo saldo aparecía duplicado en las dos alertas del resumen diario de
+// n8n (ver decisión en n8n/alertas-diarias-workflow).
+//
+// A propósito NO se excluye por solo tener pedido_id: un pedido puede
+// pasar de 'senado' a 'entregado' sin que su deuda de cuenta corriente se
+// haya saldado -- pedidos-pago-pendiente deja de verlo en ese momento (
+// solo mira estado='senado'), así que esa plata tiene que seguir
+// apareciendo ACÁ o se vuelve invisible en las dos alertas. LEFT JOINs a
+// propósito: un movimiento sin venta_id, o cuyo pedido ya no está
+// 'senado', cuenta como mostrador por default -- no hay evidencia de que
+// otra alerta lo esté cubriendo. Uso exclusivo de n8nController --
+// getClientesConDeuda (arriba) sigue siendo la versión "todo junto" que
+// usa el Dashboard.
+// ============================================
+const getClientesConDeudaMostrador = async () => {
+  const [rows] = await promisePool.query(
+    `SELECT cl.id, CONCAT_WS(' ', cl.nombre, cl.apellido) as nombre, cl.telefono,
+      SUM(CASE WHEN mcc.tipo IN ('venta_fiado', 'saldo_a_favor_aplicado') THEN mcc.monto ELSE -mcc.monto END) as saldo
+     FROM movimientos_cuenta_corriente mcc
+     JOIN clientes cl ON cl.id = mcc.cliente_id
+     LEFT JOIN ventas v ON v.id = mcc.venta_id
+     LEFT JOIN pedidos p ON p.id = v.pedido_id
+     WHERE p.id IS NULL OR p.estado <> 'senado'
+     GROUP BY cl.id, cl.nombre, cl.apellido, cl.telefono
+     HAVING saldo > 0.01
+     ORDER BY saldo DESC`,
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
+    telefono: r.telefono,
+    saldo: parseFloat(r.saldo),
+  }));
+};
+
+// ============================================
 // VENTAS POR CATEGORÍA
 // ============================================
 const getVentasPorCategoria = async (desde, hasta) => {
@@ -496,4 +539,5 @@ module.exports = {
   getPedidosPagoPendiente,
   getPedidosEstancados,
   getClientesConDeuda,
+  getClientesConDeudaMostrador,
 };

@@ -5,6 +5,7 @@ const {
   getPedidosPagoPendiente: fetchPedidosPagoPendiente,
   getPedidosEstancados: fetchPedidosEstancados,
   getClientesConDeuda: fetchClientesConDeuda,
+  getClientesConDeudaMostrador: fetchClientesConDeudaMostrador,
 } = require("./reportesController");
 
 // Intl.DateTimeFormat con timeZone explícito, no toISOString() -- da la
@@ -139,14 +140,16 @@ const getPedidosEstancados = async (req, res) => {
 };
 
 // ============================================
-// CLIENTES CON DEUDA PENDIENTE (cuenta corriente > 0, venga de un pedido
-// señado o de una venta directa fiada -- ver el comentario de
-// getClientesConDeuda en reportesController.js)
+// CLIENTES CON DEUDA DE MOSTRADOR (cuenta corriente > 0, excluye la deuda
+// que ya nace de un pedido señado -- esa se sigue aparte con
+// pedidos-pago-pendiente, en la misma alerta diaria de n8n, para no
+// mostrar la misma plata dos veces. Ver getClientesConDeudaMostrador en
+// reportesController.js)
 // GET /api/n8n/clientes-deuda-pendiente
 // ============================================
 const getClientesConDeuda = async (req, res) => {
   try {
-    const data = await fetchClientesConDeuda();
+    const data = await fetchClientesConDeudaMostrador();
 
     res.json({
       success: true,
