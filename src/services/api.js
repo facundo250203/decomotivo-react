@@ -392,6 +392,57 @@ export const adminProductsAPI = {
 };
 
 // ============================================
+// ADMIN: CATEGORÍAS (crear/editar/reordenar/activar-desactivar)
+// ============================================
+export const adminCategoriasAPI = {
+  getAll: async (token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/categorias`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error obteniendo categorías:', error);
+      throw error;
+    }
+  },
+
+  create: async (categoriaData, token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/categorias`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(categoriaData),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error creando categoría:', error);
+      throw error;
+    }
+  },
+
+  update: async (id, categoriaData, token) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/categorias/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(categoriaData),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error actualizando categoría ${id}:`, error);
+      throw error;
+    }
+  },
+};
+
+// ============================================
 // HELPER: Formatear precio
 // ============================================
 export const formatPrice = (price) => {
@@ -411,6 +462,7 @@ export default {
   products: productsAPI,
   auth: authAPI,
   adminProducts: adminProductsAPI,
+  adminCategorias: adminCategoriasAPI,
   formatPrice
 };
 
@@ -623,6 +675,39 @@ export const ventasAPI = {
       console.error('Error obteniendo resumen diario:', error);
       throw error;
     }
+  },
+
+  // Editar venta directa (alcance limitado: fecha, cliente, notas, descuento,
+  // formas de pago -- nunca ítems/stock, ver ventasController.updateVentaDirecta)
+  update: async (id, ventaData, token) => {
+    try {
+      const response = await fetch(`${API_URL}/ventas/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(ventaData),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error actualizando venta ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Eliminar venta directa (revierte stock y cuenta corriente en el backend)
+  remove: async (id, token) => {
+    try {
+      const response = await fetch(`${API_URL}/ventas/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error(`Error eliminando venta ${id}:`, error);
+      throw error;
+    }
   }
 };
 
@@ -810,6 +895,25 @@ export const cajaAPI = {
       return handleResponse(response);
     } catch (error) {
       console.error('Error cerrando caja:', error);
+      throw error;
+    }
+  },
+
+  // Editar el último cierre de caja (el más reciente, y solo ese -- ver
+  // updateUltimoCierre en el backend)
+  editarUltimoCierre: async (id, cierreData, token) => {
+    try {
+      const response = await fetch(`${API_URL}/caja/cierres/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(cierreData),
+      });
+      return handleResponse(response);
+    } catch (error) {
+      console.error('Error editando el cierre de caja:', error);
       throw error;
     }
   }

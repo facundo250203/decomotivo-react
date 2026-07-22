@@ -5,6 +5,8 @@ const {
   getVentas,
   getVentaById,
   createVentaDirecta,
+  updateVentaDirecta,
+  deleteVentaDirecta,
   getResumenDiario,
 } = require("../controllers/ventasController");
 
@@ -23,5 +25,11 @@ router.get("/:id", authenticateToken, getVentaById);
 
 // Crear venta directa de mostrador
 router.post("/", authenticateToken, createVentaDirecta);
+
+// Editar venta directa (alcance limitado -- ver comentario en el controller)
+router.put("/:id", authenticateToken, updateVentaDirecta);
+
+// Eliminar venta directa (revierte stock y cuenta corriente)
+router.delete("/:id", authenticateToken, deleteVentaDirecta);
 
 module.exports = router;

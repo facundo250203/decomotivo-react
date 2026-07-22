@@ -7,7 +7,14 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { getErrorInfo } from "../../utils/errorHandler";
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+// No usar toISOString() acá -- siempre da la fecha en UTC, y a partir de las
+// 21:00 hora Argentina (UTC-3) ya cruzó la medianoche UTC y devuelve "mañana".
+// Se arma la fecha desde los componentes LOCALES en cambio.
+const hoyISO = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 const VentasList = () => {
   const { token } = useAuth();
@@ -186,6 +193,9 @@ const VentasList = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Pedido
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -224,6 +234,18 @@ const VentasList = () => {
                           className="text-blue-600 hover:underline"
                         >
                           #{venta.pedido_id}
+                        </Link>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {venta.tipo === "venta_directa" ? (
+                        <Link
+                          to={`/admin/ventas/${venta.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          Ver detalle
                         </Link>
                       ) : (
                         "-"

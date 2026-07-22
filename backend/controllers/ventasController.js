@@ -7,7 +7,6 @@ const {
   aplicarMovimientoStock,
   aplicarMovimientoStockCombo,
 } = require("../utils/stockMovements");
-const { notificarN8N } = require("../utils/n8nWebhook");
 const {
   calcularSaldoCliente,
   registrarMovimientoCuentaCorriente,
@@ -49,7 +48,7 @@ const getVentas = async (req, res) => {
             CONCAT(SUM(vi.cantidad), 'x ', COALESCE(pr.titulo, vi.descripcion_manual)) as linea
           FROM venta_items vi
           LEFT JOIN productos pr ON pr.id = vi.producto_id
-          GROUP BY vi.venta_id, pr.id, COALESCE(pr.titulo, vi.descripcion_manual)
+          GROUP BY vi.venta_id, pr.id, vi.descripcion_manual
         ) agrupado
         GROUP BY venta_id
       ) vi_agg ON vi_agg.venta_id = v.id
@@ -130,10 +129,16 @@ const getVentaById = async (req, res) => {
         .json({ success: false, error: "Venta no encontrada" });
     }
 
+    // LEFT JOIN a producto_variantes para resolver el NOMBRE de la variante
+    // (ej. "Común x 1") -- hasta ahora solo se devolvía el id crudo
+    // producto_variante_id y el frontend no tenía forma de mostrar qué
+    // variante puntual participó de la línea.
     const [items] = await promisePool.query(
-      `SELECT vi.*, COALESCE(pr.titulo, vi.descripcion_manual) as producto_titulo
+      `SELECT vi.*, COALESCE(pr.titulo, vi.descripcion_manual) as producto_titulo,
+        pv.nombre as variante_nombre
        FROM venta_items vi
        LEFT JOIN productos pr ON pr.id = vi.producto_id
+       LEFT JOIN producto_variantes pv ON pv.id = vi.producto_variante_id
        WHERE vi.venta_id = ?`,
       [id],
     );
@@ -141,14 +146,18 @@ const getVentaById = async (req, res) => {
     // Extras (ver migración 025) se traen en una segunda consulta -- uno o
     // más por venta_item -- y se anidan por venta_item_id más abajo, en vez
     // de un JOIN directo contra venta_items, para no multiplicar filas de
-    // items cuando una línea tiene más de un extra.
+    // items cuando una línea tiene más de un extra. Desde la migración 029
+    // un extra también puede traer producto_variante_id, mismo join que
+    // arriba para resolver su nombre.
     const itemIds = items.map((item) => item.id);
     let extrasRows = [];
     if (itemIds.length > 0) {
       const [rows] = await promisePool.query(
-        `SELECT vie.*, COALESCE(pr.titulo, vie.descripcion) as extra_titulo
+        `SELECT vie.*, COALESCE(pr.titulo, vie.descripcion) as extra_titulo,
+          pv.nombre as variante_nombre
          FROM venta_item_extras vie
          LEFT JOIN productos pr ON pr.id = vie.producto_id
+         LEFT JOIN producto_variantes pv ON pv.id = vie.producto_variante_id
          WHERE vie.venta_item_id IN (${itemIds.map(() => "?").join(",")})`,
         itemIds,
       );
@@ -289,6 +298,7 @@ const createVentaDirecta = async (req, res) => {
           }
           extras.push({
             productoId: extra.producto_id,
+            productoVarianteId: extra.producto_variante_id || null,
             descripcion: null,
             precio: precioExtra,
             cantidad: cantidadExtra,
@@ -345,12 +355,22 @@ const createVentaDirecta = async (req, res) => {
             error: "Cada producto de catálogo debe tener un precio unitario válido",
           });
         }
+        // cajas_vendidas (ver migración 027): puramente informativo para
+        // reconstruir "Caja x10" en el detalle -- cantidad y precioUnitario
+        // ya vienen calculados desde el frontend (cantidad = cajas *
+        // unidades_por_caja, precioUnitario = precio_caja / unidades_por_caja),
+        // acá no se recalcula nada, solo se guarda el dato para mostrarlo.
+        const cajasVendidas = item.cajas_vendidas
+          ? parseInt(item.cajas_vendidas)
+          : null;
+
         itemsNormalizados.push({
           esManual: false,
           productoId: item.producto_id,
           productoVarianteId: item.producto_variante_id || null,
           cantidad,
           precioUnitario,
+          cajasVendidas,
           extras,
         });
       } else {
@@ -532,13 +552,14 @@ const createVentaDirecta = async (req, res) => {
         ventaItemId = itemResult.insertId;
       } else {
         const [itemResult] = await connection.query(
-          `INSERT INTO venta_items (venta_id, producto_id, producto_variante_id, cantidad, precio_unitario)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO venta_items (venta_id, producto_id, producto_variante_id, cantidad, cajas_vendidas, precio_unitario)
+           VALUES (?, ?, ?, ?, ?, ?)`,
           [
             ventaId,
             item.productoId,
             item.productoVarianteId,
             item.cantidad,
+            item.cajasVendidas,
             item.precioUnitario,
           ],
         );
@@ -554,14 +575,23 @@ const createVentaDirecta = async (req, res) => {
       // del negocio: es una unidad real que sale de inventario, no un simple
       // ajuste de precio), usando la cantidad del extra -- no la del ítem
       // padre -- y las mismas reglas combo / controla_stock=false / falla
-      // a `sinStock` que ya aplica el loop de ítems más abajo. Los extras no
-      // tienen concepto de variante, así que solo aplican las reglas a nivel
-      // producto.
+      // a `sinStock` que ya aplica el loop de ítems más abajo. Desde la
+      // migración 029 un extra SÍ puede traer variante (producto_variante_id)
+      // -- necesario para productos precio_tipo='variantes', donde
+      // productos.cantidad es un placeholder en 0 y el stock real vive en la
+      // variante puntual.
       for (const extra of item.extras) {
         await connection.query(
-          `INSERT INTO venta_item_extras (venta_item_id, producto_id, descripcion, precio, cantidad)
-           VALUES (?, ?, ?, ?, ?)`,
-          [ventaItemId, extra.productoId || null, extra.descripcion, extra.precio, extra.cantidad],
+          `INSERT INTO venta_item_extras (venta_item_id, producto_id, producto_variante_id, descripcion, precio, cantidad)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            ventaItemId,
+            extra.productoId || null,
+            extra.productoVarianteId || null,
+            extra.descripcion,
+            extra.precio,
+            extra.cantidad,
+          ],
         );
 
         if (!extra.productoId) {
@@ -586,13 +616,19 @@ const createVentaDirecta = async (req, res) => {
           continue;
         }
 
-        if (controlaStockMap.get(parseInt(extra.productoId)) === false) {
+        // Mismo criterio que el ítem principal: un extra con variante
+        // siempre controla stock (la variante existe justamente para llevar
+        // stock propio por medida); sin variante, se respeta controla_stock.
+        if (
+          !extra.productoVarianteId &&
+          controlaStockMap.get(parseInt(extra.productoId)) === false
+        ) {
           continue;
         }
 
         const { ok: extraOk } = await aplicarMovimientoStock(connection, {
           productoId: extra.productoId,
-          varianteId: null,
+          varianteId: extra.productoVarianteId,
           cantidad: extra.cantidad,
           direccion: "salida",
           tipo: "salida_venta",
@@ -601,7 +637,7 @@ const createVentaDirecta = async (req, res) => {
         });
 
         if (!extraOk) {
-          sinStock.push(extra.productoId);
+          sinStock.push(extra.productoVarianteId || extra.productoId);
         }
       }
 
@@ -678,13 +714,6 @@ const createVentaDirecta = async (req, res) => {
 
     await connection.commit();
 
-    notificarN8N("venta_directa_creada", {
-      venta_id: ventaId,
-      cliente_nombre: cliente_nombre || null,
-      cliente_telefono: cliente_telefono || null,
-      monto_total: montoCargado,
-    });
-
     res.status(201).json({
       success: true,
       message: "Venta registrada exitosamente",
@@ -700,6 +729,421 @@ const createVentaDirecta = async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Error al crear la venta",
+      message: error.message,
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+// ============================================
+// EDITAR VENTA DIRECTA (alcance limitado, ver decisión del dueño)
+// Solo se pueden tocar los campos "de cabecera" -- fecha, cliente, notas,
+// descuento y las 3 formas de pago. venta_items/venta_item_extras y stock
+// son inmutables acá a propósito: si el vendedor se equivocó en QUÉ se
+// vendió, la corrección es borrar la venta (ver deleteVentaDirecta, que sí
+// revierte todo) y cargarla de nuevo, no editar los ítems in-place.
+// ============================================
+const updateVentaDirecta = async (req, res) => {
+  const connection = await promisePool.getConnection();
+
+  try {
+    const { id } = req.params;
+    const {
+      fecha,
+      cliente_id,
+      cliente_nombre,
+      cliente_telefono,
+      notas,
+      descuento = 0,
+      monto_efectivo = 0,
+      monto_transferencia = 0,
+      monto_cuenta_corriente = 0,
+    } = req.body;
+
+    const montoCuentaCorrienteNum = parseMontoValidado(monto_cuenta_corriente);
+    const efectivoValidado = parseMontoValidado(monto_efectivo);
+    const transferenciaValidada = parseMontoValidado(monto_transferencia);
+    const descuentoNum = parseMontoValidado(descuento);
+
+    if (
+      montoCuentaCorrienteNum === null ||
+      efectivoValidado === null ||
+      transferenciaValidada === null ||
+      descuentoNum === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: "Los montos deben ser números válidos y no negativos",
+      });
+    }
+
+    const nuevoClienteId = cliente_id ? parseInt(cliente_id) : null;
+
+    if (montoCuentaCorrienteNum > 0 && !nuevoClienteId) {
+      return res.status(400).json({
+        success: false,
+        error: "Para vender a cuenta corriente hay que vincular un cliente registrado",
+      });
+    }
+
+    if (fecha && Number.isNaN(new Date(fecha).getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: "La fecha ingresada no es válida",
+      });
+    }
+
+    await connection.beginTransaction();
+
+    // Lock de la fila -- misma técnica que createVentaDirecta usa sobre el
+    // cliente, acá sobre la venta, para que dos ediciones concurrentes de la
+    // misma venta no lean el mismo estado "viejo" y calculen un delta de
+    // cuenta corriente incorrecto.
+    const [ventas] = await connection.query(
+      "SELECT * FROM ventas WHERE id = ? FOR UPDATE",
+      [id],
+    );
+    if (ventas.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, error: "Venta no encontrada" });
+    }
+
+    const ventaActual = ventas[0];
+    if (ventaActual.tipo !== "venta_directa") {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        error: "Solo se pueden editar ventas directas",
+      });
+    }
+
+    if (nuevoClienteId) {
+      const [clientesRows] = await connection.query(
+        "SELECT id, activo FROM clientes WHERE id = ?",
+        [nuevoClienteId],
+      );
+      if (clientesRows.length === 0 || !clientesRows[0].activo) {
+        await connection.rollback();
+        return res.status(404).json({
+          success: false,
+          error: "El cliente no existe o está inactivo",
+        });
+      }
+    }
+
+    // sumaItems se recalcula desde los venta_items/venta_item_extras YA
+    // guardados (nunca del body -- editar no toca ítems, ver comentario de
+    // arriba), mismo cálculo que createVentaDirecta hace sobre los ítems
+    // recién armados.
+    const [[sumaRow]] = await connection.query(
+      `SELECT
+         COALESCE(SUM(vi.subtotal), 0) as suma_items,
+         COALESCE((
+           SELECT SUM(vie.subtotal)
+           FROM venta_item_extras vie
+           JOIN venta_items vi2 ON vi2.id = vie.venta_item_id
+           WHERE vi2.venta_id = ?
+         ), 0) as suma_extras
+       FROM venta_items vi
+       WHERE vi.venta_id = ?`,
+      [id, id],
+    );
+    const sumaItems = parseFloat(sumaRow.suma_items) + parseFloat(sumaRow.suma_extras);
+
+    // Mismo guardia que createVentaDirecta: el descuento no puede igualar ni
+    // superar el total de los ítems.
+    if (descuentoNum >= sumaItems) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        error:
+          "El descuento debe ser un número válido, no negativo, y menor al total de los productos",
+      });
+    }
+
+    const montoEsperado = sumaItems - descuentoNum;
+    const montoCargado = efectivoValidado + transferenciaValidada + montoCuentaCorrienteNum;
+
+    // A diferencia de createVentaDirecta, acá NO se recalcula/reaplica saldo
+    // a favor -- ese ajuste ya ocurrió (o no) en el momento de la creación y
+    // no es parte del alcance acordado para editar. El invariante a validar
+    // es simplemente monto cargado === total de ítems - descuento.
+    if (!montoCoincide(montoCargado, montoEsperado)) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        error: `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total de los productos menos el descuento (${montoEsperado.toFixed(2)})`,
+      });
+    }
+
+    // Reconciliación de cuenta corriente: si el cliente cambió, se revierte
+    // completo el movimiento viejo contra el cliente viejo y se da de alta
+    // completo el nuevo contra el cliente nuevo (no tiene sentido calcular un
+    // "delta" entre dos clientes distintos). Si el cliente es el mismo, solo
+    // se registra la diferencia entre el monto viejo y el nuevo.
+    const montoCcViejo = parseFloat(ventaActual.monto_cuenta_corriente);
+    const clienteViejoId = ventaActual.cliente_id;
+    const clienteCambio = clienteViejoId !== nuevoClienteId;
+
+    if (clienteCambio) {
+      if (montoCcViejo > 0 && clienteViejoId) {
+        await registrarMovimientoCuentaCorriente(connection, {
+          clienteId: clienteViejoId,
+          tipo: "pago_cliente",
+          monto: montoCcViejo,
+          ventaId: id,
+          notas: `Reversión por cambio de cliente al editar la venta #${id}`,
+        });
+      }
+      if (montoCuentaCorrienteNum > 0) {
+        await registrarMovimientoCuentaCorriente(connection, {
+          clienteId: nuevoClienteId,
+          tipo: "venta_fiado",
+          monto: montoCuentaCorrienteNum,
+          ventaId: id,
+          notas: `Alta por cambio de cliente al editar la venta #${id}`,
+        });
+      }
+    } else {
+      const delta = montoCuentaCorrienteNum - montoCcViejo;
+      if (delta > 0.01) {
+        await registrarMovimientoCuentaCorriente(connection, {
+          clienteId: nuevoClienteId,
+          tipo: "venta_fiado",
+          monto: delta,
+          ventaId: id,
+          notas: `Ajuste por edición de la venta #${id} (aumento de monto a cuenta corriente)`,
+        });
+      } else if (delta < -0.01) {
+        await registrarMovimientoCuentaCorriente(connection, {
+          clienteId: nuevoClienteId,
+          tipo: "pago_cliente",
+          monto: -delta,
+          ventaId: id,
+          notas: `Ajuste por edición de la venta #${id} (disminución de monto a cuenta corriente)`,
+        });
+      }
+    }
+
+    await connection.query(
+      `UPDATE ventas SET fecha = ?, cliente_id = ?, cliente_nombre = ?, cliente_telefono = ?, notas = ?, descuento = ?, monto_efectivo = ?, monto_transferencia = ?, monto_cuenta_corriente = ?
+       WHERE id = ?`,
+      [
+        fecha || ventaActual.fecha,
+        nuevoClienteId,
+        cliente_nombre || null,
+        cliente_telefono || null,
+        notas || null,
+        descuentoNum,
+        efectivoValidado,
+        transferenciaValidada,
+        montoCuentaCorrienteNum,
+        id,
+      ],
+    );
+
+    await connection.commit();
+
+    res.json({
+      success: true,
+      message: "Venta actualizada correctamente",
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Error editando venta directa:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al editar la venta",
+      message: error.message,
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+// ============================================
+// ELIMINAR VENTA DIRECTA
+// Hard delete -- sin soft-delete/undo (decisión del dueño). Antes de borrar
+// la fila hay que revertir todo lo que la creación tocó por fuera de
+// `ventas`: stock (por ítem/extra, misma lógica de decisión que
+// createVentaDirecta) y cuenta corriente (todo movimiento que haya quedado
+// con este venta_id). Si se salteara la reversión de cuenta corriente, la
+// venta desaparece pero la deuda/saldo a favor que generó queda fantasma en
+// el cliente para siempre -- por eso corre ANTES del DELETE final, dentro de
+// la misma transacción.
+// ============================================
+const deleteVentaDirecta = async (req, res) => {
+  const connection = await promisePool.getConnection();
+
+  try {
+    const { id } = req.params;
+
+    await connection.beginTransaction();
+
+    const [ventas] = await connection.query(
+      "SELECT * FROM ventas WHERE id = ? FOR UPDATE",
+      [id],
+    );
+    if (ventas.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ success: false, error: "Venta no encontrada" });
+    }
+
+    const venta = ventas[0];
+    if (venta.tipo !== "venta_directa") {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        error: "Solo se pueden eliminar ventas directas",
+      });
+    }
+
+    const [items] = await connection.query(
+      "SELECT * FROM venta_items WHERE venta_id = ?",
+      [id],
+    );
+
+    const itemIds = items.map((item) => item.id);
+    let extras = [];
+    if (itemIds.length > 0) {
+      const [extraRows] = await connection.query(
+        `SELECT * FROM venta_item_extras WHERE venta_item_id IN (${itemIds.map(() => "?").join(",")})`,
+        itemIds,
+      );
+      extras = extraRows;
+    }
+
+    // Mismos mapas que createVentaDirecta arma antes de tocar stock -- se
+    // recalculan acá con el estado ACTUAL de productos (controla_stock/
+    // precio_tipo pudieron cambiar desde que se creó la venta; se asume que
+    // no cambiaron, misma limitación implícita que ya tiene createVentaDirecta
+    // al decidir con el estado del momento).
+    const productoIds = items
+      .filter((item) => item.producto_id)
+      .map((item) => item.producto_id);
+    const extraProductoIds = extras
+      .filter((extra) => extra.producto_id)
+      .map((extra) => extra.producto_id);
+    const todosLosProductoIds = [
+      ...new Set([...productoIds, ...extraProductoIds]),
+    ];
+    const controlaStockMap = await getControlaStockMap(connection, todosLosProductoIds);
+    const precioTipoMap = await getPrecioTipoMap(connection, todosLosProductoIds);
+
+    for (const item of items) {
+      // Ítem manual (producto_id NULL, ver migración 024): nunca tocó stock
+      // en la creación, nada que revertir.
+      if (!item.producto_id) continue;
+
+      if (precioTipoMap.get(item.producto_id) === "combo") {
+        await aplicarMovimientoStockCombo(connection, {
+          comboProductoId: item.producto_id,
+          cantidadCombos: item.cantidad,
+          direccion: "entrada",
+          tipo: "ajuste_manual",
+          refColumn: "venta_id",
+          refId: id,
+        });
+        continue;
+      }
+
+      // Mismo criterio que createVentaDirecta: sin variante y con
+      // controla_stock=false, la línea nunca movió stock.
+      if (
+        !item.producto_variante_id &&
+        controlaStockMap.get(item.producto_id) === false
+      ) {
+        continue;
+      }
+
+      await aplicarMovimientoStock(connection, {
+        productoId: item.producto_id,
+        varianteId: item.producto_variante_id,
+        cantidad: item.cantidad,
+        direccion: "entrada",
+        tipo: "ajuste_manual",
+        refColumn: "venta_id",
+        refId: id,
+      });
+    }
+
+    // Extras con producto_id real también descontaron stock en la creación
+    // (confirmado con el dueño del negocio, ver migración 025) -- se
+    // revierten con la misma lógica que los ítems. Desde la migración 029 un
+    // extra puede traer producto_variante_id, mismo criterio de "con
+    // variante siempre controla stock" que el loop de ítems de arriba.
+    for (const extra of extras) {
+      if (!extra.producto_id) continue;
+
+      if (precioTipoMap.get(extra.producto_id) === "combo") {
+        await aplicarMovimientoStockCombo(connection, {
+          comboProductoId: extra.producto_id,
+          cantidadCombos: extra.cantidad,
+          direccion: "entrada",
+          tipo: "ajuste_manual",
+          refColumn: "venta_id",
+          refId: id,
+        });
+        continue;
+      }
+
+      if (
+        !extra.producto_variante_id &&
+        controlaStockMap.get(extra.producto_id) === false
+      )
+        continue;
+
+      await aplicarMovimientoStock(connection, {
+        productoId: extra.producto_id,
+        varianteId: extra.producto_variante_id,
+        cantidad: extra.cantidad,
+        direccion: "entrada",
+        tipo: "ajuste_manual",
+        refColumn: "venta_id",
+        refId: id,
+      });
+    }
+
+    // Reversión de cuenta corriente: por cada movimiento que esta venta haya
+    // generado (venta_fiado o saldo_a_favor_aplicado, los dos tipos que
+    // createVentaDirecta puede registrar), se compensa con un pago_cliente
+    // del mismo monto. ventaId se mantiene apuntando a la venta que se está
+    // por borrar -- el FK tiene ON DELETE SET NULL (migración 023), así que
+    // el DELETE de más abajo lo deja en NULL solo, sin romper esta fila.
+    const [movimientosCC] = await connection.query(
+      "SELECT * FROM movimientos_cuenta_corriente WHERE venta_id = ?",
+      [id],
+    );
+    for (const mov of movimientosCC) {
+      if (mov.tipo === "venta_fiado" || mov.tipo === "saldo_a_favor_aplicado") {
+        await registrarMovimientoCuentaCorriente(connection, {
+          clienteId: mov.cliente_id,
+          tipo: "pago_cliente",
+          monto: parseFloat(mov.monto),
+          ventaId: id,
+          notas: `Reversión por eliminación de la venta #${id}`,
+        });
+      }
+    }
+
+    // venta_items/venta_item_extras cascadean (fk ON DELETE CASCADE, ver
+    // migraciones 003/025); movimientos_stock/movimientos_cuenta_corriente
+    // sobreviven con venta_id en NULL (ON DELETE SET NULL).
+    await connection.query("DELETE FROM ventas WHERE id = ?", [id]);
+
+    await connection.commit();
+
+    res.json({
+      success: true,
+      message: "Venta eliminada. Stock y cuenta corriente revertidos correctamente.",
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Error eliminando venta directa:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al eliminar la venta",
       message: error.message,
     });
   } finally {
@@ -758,5 +1202,7 @@ module.exports = {
   getVentas,
   getVentaById,
   createVentaDirecta,
+  updateVentaDirecta,
+  deleteVentaDirecta,
   getResumenDiario,
 };

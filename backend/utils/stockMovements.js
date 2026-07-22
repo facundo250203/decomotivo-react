@@ -113,24 +113,27 @@ const aplicarMovimientoStock = async (
 // Hermana de aplicarMovimientoStock para cuando el producto vendido es un
 // combo (precio_tipo='combo'): en vez de tocar un contador propio (el combo
 // no tiene), recorre su receta (getComboRecipe) y aplica, por cada
-// componente, el mismo UPDATE atómico "cantidad = cantidad - ? WHERE
-// cantidad >= ?" multiplicando la cantidad requerida por la cantidad de
-// combos vendidos -- y deja una fila en movimientos_stock POR COMPONENTE con
-// el mismo refColumn/refId que se le hubiera puesto al combo, para que el
+// componente, el mismo movimiento (salida con guarda atómica, o entrada sin
+// guarda) multiplicando la cantidad requerida por la cantidad de combos
+// vendidos/revertidos -- y deja una fila en movimientos_stock POR COMPONENTE
+// con el mismo refColumn/refId que se le hubiera puesto al combo, para que el
 // movimiento quede trazado contra el mismo pedido/venta.
 //
-// Solo soporta direccion='salida' (vender un combo): no hay caso de negocio
-// hoy para "entrada de combo" (revertir/recibir combos no vendidos vueltos
-// a stock no aplica porque el combo no tiene stock propio que reponer).
+// `direccion` default 'salida' (vender un combo) para no romper a los
+// llamadores existentes que nunca la pasaban. 'entrada' se agregó para poder
+// revertir el stock de los componentes de un combo al eliminar una venta que
+// lo incluía (ver ventasController.deleteVentaDirecta) -- el combo en sí
+// nunca tiene stock propio que reponer, pero sus componentes sí.
 //
-// Si CUALQUIER componente no tiene stock suficiente, corta en el momento y
-// devuelve { ok: false } sin haber hecho commit -- como esto corre dentro de
-// la transacción del caller (ver orderController/ventasController), ese
+// Si CUALQUIER componente no tiene stock suficiente (solo aplica a
+// direccion='salida', 'entrada' nunca falla por guarda), corta en el momento
+// y devuelve { ok: false } sin haber hecho commit -- como esto corre dentro
+// de la transacción del caller (ver orderController/ventasController), ese
 // { ok: false } dispara el rollback de todo el pedido/venta, incluyendo los
 // UPDATEs de componentes anteriores ya aplicados en este mismo loop.
 const aplicarMovimientoStockCombo = async (
   connection,
-  { comboProductoId, cantidadCombos, tipo, refColumn, refId },
+  { comboProductoId, cantidadCombos, direccion = "salida", tipo, refColumn, refId },
 ) => {
   const receta = await getComboRecipe(connection, comboProductoId);
 
@@ -139,7 +142,7 @@ const aplicarMovimientoStockCombo = async (
       productoId: item.componenteProductoId,
       varianteId: item.componenteVarianteId,
       cantidad: item.cantidad * cantidadCombos,
-      direccion: "salida",
+      direccion,
       tipo,
       refColumn,
       refId,
