@@ -3,12 +3,10 @@ import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
 import { categoriesAPI, productsAPI } from "../services/api";
 import CategoryNav from "../components/CategoryNav";
-import ProductGridCard from "../components/ProductGridCard";
 import ProductGrid from "../components/ProductGrid";
 
 const Productos = () => {
   const [categorias, setCategorias] = useState([]);
-  const [productosDestacados, setProductosDestacados] = useState([]);
   const [todosLosProductos, setTodosLosProductos] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,14 +30,8 @@ const Productos = () => {
           setCategorias(categoriasFormateadas);
         }
 
-        // Obtener productos destacados y el catálogo completo en paralelo
-        const [destacadosResponse, todosResponse] = await Promise.all([
-          productsAPI.getFeatured(10),
-          productsAPI.getAll({ limit: 200 }),
-        ]);
-        if (destacadosResponse.success) {
-          setProductosDestacados(destacadosResponse.data || []);
-        }
+        // Obtener el catálogo completo
+        const todosResponse = await productsAPI.getAll({ limit: 200 });
         if (todosResponse.success) {
           setTodosLosProductos(todosResponse.data || []);
         }
@@ -164,19 +156,6 @@ const Productos = () => {
                   </div>
                 ) : (
                   <>
-                    {productosDestacados.length > 0 && (
-                      <>
-                        <h2 className="text-3xl lg:text-4xl font-bold text-center mb-10 text-secondary">
-                          Productos Destacados
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-                          {productosDestacados.map((producto) => (
-                            <ProductGridCard key={producto.id} producto={producto} />
-                          ))}
-                        </div>
-                      </>
-                    )}
-
                     <h2 className="text-3xl lg:text-4xl font-bold text-center mb-10 text-secondary">
                       Todos los Productos
                     </h2>

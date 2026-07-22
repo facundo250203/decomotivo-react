@@ -1,9 +1,27 @@
 // src/pages/Inicio.jsx
 import { Link } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { productsAPI } from "../services/api";
+import ProductGridCard from "../components/ProductGridCard";
 
 const Inicio = () => {
+  const [productosDestacados, setProductosDestacados] = useState([]);
+
+  useEffect(() => {
+    const fetchDestacados = async () => {
+      try {
+        const response = await productsAPI.getFeatured(10);
+        if (response.success) {
+          setProductosDestacados(response.data || []);
+        }
+      } catch (error) {
+        console.error("Error cargando productos destacados:", error);
+      }
+    };
+
+    fetchDestacados();
+  }, []);
 
   useEffect(() => {
     // Intersection Observer para animaciones
@@ -130,6 +148,31 @@ const Inicio = () => {
           </Link>
         </div>
       </section>
+
+      {/* Productos Destacados */}
+      {productosDestacados.length > 0 && (
+        <section className="py-20 bg-blanco">
+          <div className="container">
+            <h2 className="text-3xl lg:text-4xl font-bold text-center mb-12 text-secondary">
+              Productos Destacados
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {productosDestacados.map((producto) => (
+                <ProductGridCard key={producto.id} producto={producto} />
+              ))}
+            </div>
+            <div className="text-center mt-12">
+              <Link
+                to="/productos"
+                className="inline-flex items-center gap-2 bg-primary text-blanco px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 hover:bg-accent hover:scale-105 shadow-lg"
+              >
+                <i className="fas fa-shopping-bag"></i>
+                Ver Todos los Productos
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ¿Quiénes Somos? */}
       <section className="py-20 bg-fondo">
