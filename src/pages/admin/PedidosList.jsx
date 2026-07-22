@@ -156,6 +156,9 @@ const PedidosList = () => {
                         Pagado
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Debe
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Estado
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -188,6 +191,16 @@ const PedidosList = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatPrecio(pedido.total_pagado)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">
+                          {(() => {
+                            const debe = Math.max(pedido.total - pedido.total_pagado, 0);
+                            return (
+                              <span className={debe > 0.01 ? "text-orange-600" : "text-gray-400"}>
+                                {formatPrecio(debe)}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex text-xs px-2 py-1 rounded-full font-semibold ${getEstadoBadge(pedido.estado)}`}>
