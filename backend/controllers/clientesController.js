@@ -273,11 +273,16 @@ const getCuentaCorriente = async (req, res) => {
 
     const saldo = await calcularSaldoCliente(promisePool, id);
 
+    // LEFT JOIN a ventas para poder mostrar de qué pedido viene la deuda (si
+    // vino de señar/pagar un pedido) -- movimientos_cuenta_corriente no
+    // guarda pedido_id directo, solo venta_id, así que sale del pedido_id de
+    // esa venta.
     const [movimientos] = await promisePool.query(
-      `SELECT id, tipo, monto, venta_id, fecha, notas
-       FROM movimientos_cuenta_corriente
-       WHERE cliente_id = ?
-       ORDER BY fecha DESC, id DESC`,
+      `SELECT m.id, m.tipo, m.monto, m.venta_id, m.fecha, m.notas, v.pedido_id
+       FROM movimientos_cuenta_corriente m
+       LEFT JOIN ventas v ON v.id = m.venta_id
+       WHERE m.cliente_id = ?
+       ORDER BY m.fecha DESC, m.id DESC`,
       [id],
     );
 
