@@ -29,6 +29,12 @@ const getVentas = async (req, res) => {
       SELECT
         v.id, v.pedido_id, v.cliente_id, v.fecha, v.monto_efectivo, v.monto_transferencia,
         v.monto_cuenta_corriente, v.descuento, v.monto_total, v.tipo, v.notas,
+        -- Solo para tipo='sena': permite al front distinguir una seña
+        -- parcial de una que cubrió el 100% del pedido (mismo monto), sin
+        -- cambiar cómo se guarda el dato -- un pedido solo se señala una
+        -- vez (ver orderController), así que comparar esta única venta
+        -- contra el total alcanza, no hace falta sumar varias.
+        p.total as pedido_total,
         -- NULLIF(...,'') a propósito: si v.cliente_id es NULL (seña/pago de
         -- un pedido, el cliente vive en el pedido, no en la venta), el JOIN
         -- a clientes no matchea y CONCAT_WS(' ', NULL, NULL) da '' (no NULL
@@ -98,6 +104,7 @@ const getVentas = async (req, res) => {
         monto_cuenta_corriente: parseFloat(row.monto_cuenta_corriente),
         descuento: parseFloat(row.descuento),
         monto_total: parseFloat(row.monto_total),
+        pedido_total: row.pedido_total !== null ? parseFloat(row.pedido_total) : null,
       })),
     });
   } catch (error) {

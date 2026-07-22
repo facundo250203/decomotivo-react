@@ -61,13 +61,24 @@ const VentasList = () => {
     }).format(precio);
   };
 
-  const etiquetaTipo = (tipo) => {
+  const etiquetaTipo = (venta) => {
+    // Una "seña" que cubre el 100% del pedido es, en la práctica, un pago
+    // completo -- se distingue así en vez de en el dato guardado porque un
+    // pedido solo se señala una vez (no hay un tipo de venta separado para
+    // "pago completo desde el inicio").
+    if (
+      venta.tipo === "sena" &&
+      venta.pedido_total != null &&
+      venta.pedido_total - venta.monto_total <= 0.01
+    ) {
+      return "Pago Completo";
+    }
     const etiquetas = {
       sena: "Seña",
       pago_final: "Pago",
       venta_directa: "Venta directa",
     };
-    return etiquetas[tipo] || tipo;
+    return etiquetas[venta.tipo] || venta.tipo;
   };
 
   const totales = ventas.reduce(
@@ -205,7 +216,7 @@ const VentasList = () => {
                       {formatFecha(venta.fecha)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {etiquetaTipo(venta.tipo)}
+                      {etiquetaTipo(venta)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {venta.cliente_nombre || "Venta de mostrador"}
