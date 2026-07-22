@@ -89,7 +89,7 @@ const ClientesList = () => {
                     Teléfono
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Email
+                    Notas
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
@@ -105,24 +105,17 @@ const ClientesList = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {cliente.telefono || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {cliente.email || "-"}
+                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                      {cliente.notas || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-3">
                         <Link
                           to={`/admin/clientes/${cliente.id}`}
                           className="text-secondary hover:text-primary"
-                          title="Ver historial"
+                          title="Ver perfil"
                         >
-                          <i className="fas fa-history"></i>
-                        </Link>
-                        <Link
-                          to={`/admin/clientes/editar/${cliente.id}`}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Editar"
-                        >
-                          <i className="fas fa-edit"></i>
+                          <i className="fas fa-eye"></i>
                         </Link>
                         <button
                           onClick={() => handleDelete(cliente.id, cliente.nombre_completo)}
