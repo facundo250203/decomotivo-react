@@ -8,6 +8,7 @@ const {
 } = require('../utils/stockMovements');
 const { parseMontoValidado } = require('../utils/montoValidation');
 const { notificarN8N } = require('../utils/n8nWebhook');
+const { registrarMovimientoCuentaCorriente } = require('../utils/cuentaCorriente');
 
 // ============================================
 // HELPER: Estructurar pedido con sus items
@@ -39,6 +40,7 @@ const structureOrderWithItems = (rows) => {
         descripcion: row.item_descripcion,
         precio_unitario: parseFloat(row.item_precio_unitario),
         cantidad: row.item_cantidad,
+        cajas_vendidas: row.item_cajas_vendidas,
         subtotal: parseFloat(row.item_subtotal)
       }))
   };
@@ -115,11 +117,14 @@ const createOrder = async (req, res) => {
     for (const item of items) {
       const itemSubtotal = parseFloat(item.precio_unitario) * parseInt(item.cantidad);
       
+      // cajas_vendidas (ver migración 027): igual criterio que en
+      // ventasController -- solo para reconstruir "Caja x10" en el detalle,
+      // cantidad/precio_unitario ya vienen calculados desde el frontend.
       await connection.query(
         `INSERT INTO pedido_items (
           pedido_id, producto_id, producto_variante_id, descripcion,
-          precio_unitario, cantidad, subtotal
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          precio_unitario, cantidad, cajas_vendidas, subtotal
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           pedidoId,
           item.producto_id,
@@ -127,6 +132,7 @@ const createOrder = async (req, res) => {
           item.descripcion || null,
           item.precio_unitario,
           item.cantidad,
+          item.cajas_vendidas || null,
           itemSubtotal
         ]
       );
@@ -143,6 +149,7 @@ const createOrder = async (req, res) => {
         pi.descripcion as item_descripcion,
         pi.precio_unitario as item_precio_unitario,
         pi.cantidad as item_cantidad,
+        pi.cajas_vendidas as item_cajas_vendidas,
         pi.subtotal as item_subtotal,
         pr.titulo as producto_titulo
       FROM pedidos p
@@ -287,6 +294,7 @@ const getOrderById = async (req, res) => {
         pi.descripcion as item_descripcion,
         pi.precio_unitario as item_precio_unitario,
         pi.cantidad as item_cantidad,
+        pi.cajas_vendidas as item_cajas_vendidas,
         pi.subtotal as item_subtotal,
         pr.titulo as producto_titulo,
         pr.slug as producto_slug
@@ -373,7 +381,7 @@ const updateOrderStatus = async (req, res) => {
     // estado, y ve el estado ya actualizado -- sin esto, ambos podrían leer
     // 'solicitado' a la vez y terminar señando el pedido dos veces.
     const [pedidos] = await connection.query(
-      'SELECT id, estado FROM pedidos WHERE id = ? FOR UPDATE',
+      'SELECT id, estado, cliente_id, total FROM pedidos WHERE id = ? FOR UPDATE',
       [id]
     );
 
@@ -462,11 +470,25 @@ const updateOrderStatus = async (req, res) => {
         });
       }
 
-      await connection.query(
+      const [senaResult] = await connection.query(
         `INSERT INTO ventas (pedido_id, tipo, monto_efectivo, monto_transferencia)
          VALUES (?, 'sena', ?, ?)`,
         [id, efectivoValidado, transferenciaValidada]
       );
+
+      // Señar es un compromiso de pago: lo que no se cubre con la seña queda
+      // como deuda del cliente en su cuenta corriente (si el pedido tiene
+      // cliente vinculado -- sin cliente_id no hay a quién asociarle la
+      // deuda, igual que "a cuenta" en ventas directas la requiere).
+      const saldoPendiente = parseFloat(pedidos[0].total) - (efectivoValidado + transferenciaValidada);
+      if (pedidos[0].cliente_id && saldoPendiente > 0.01) {
+        await registrarMovimientoCuentaCorriente(connection, {
+          clienteId: pedidos[0].cliente_id,
+          tipo: 'venta_fiado',
+          monto: saldoPendiente,
+          ventaId: senaResult.insertId,
+        });
+      }
     }
 
     // Actualizar estado y fecha correspondiente
@@ -555,7 +577,7 @@ const registerPayment = async (req, res) => {
     // una transición de estado (o otro pago) llegan casi al mismo tiempo
     // para el mismo pedido, se serializan en vez de leer el estado a la vez.
     const [pedidos] = await connection.query(
-      "SELECT id, estado FROM pedidos WHERE id = ? FOR UPDATE",
+      "SELECT id, estado, cliente_id FROM pedidos WHERE id = ? FOR UPDATE",
       [id]
     );
 
@@ -572,6 +594,18 @@ const registerPayment = async (req, res) => {
        VALUES (?, 'pago_final', ?, ?)`,
       [id, efectivoValidado, transferenciaValidada]
     );
+
+    // Reduce la deuda de cuenta corriente que pudo haber nacido al señar
+    // (si no había cliente vinculado, nunca nació esa deuda -- este pago
+    // sigue quedando registrado en `ventas`, solo no toca cuenta corriente).
+    if (pedidos[0].cliente_id) {
+      await registrarMovimientoCuentaCorriente(connection, {
+        clienteId: pedidos[0].cliente_id,
+        tipo: 'pago_cliente',
+        monto: efectivoValidado + transferenciaValidada,
+        ventaId: result.insertId,
+      });
+    }
 
     await connection.commit();
 

@@ -352,8 +352,16 @@ const ClienteDetalle = () => {
                     className="flex justify-between items-center border rounded-lg p-3 text-sm"
                   >
                     <div>
-                      <p className="font-medium">
+                      <p className="font-medium flex items-center gap-2">
                         {TIPO_MOVIMIENTO_LABEL[mov.tipo] || mov.tipo}
+                        {mov.pedido_id && (
+                          <Link
+                            to={`/admin/pedidos/${mov.pedido_id}`}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Pedido #{mov.pedido_id}
+                          </Link>
+                        )}
                       </p>
                       <p className="text-gray-500">{formatFecha(mov.fecha)}</p>
                       {mov.notas && (

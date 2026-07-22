@@ -237,6 +237,14 @@ const PedidoDetalle = () => {
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <i className="fas fa-user text-primary"></i>
               Información del Cliente
+              {pedido.cliente_id && (
+                <Link
+                  to={`/admin/clientes/${pedido.cliente_id}`}
+                  className="text-sm font-normal text-primary hover:underline ml-auto"
+                >
+                  Ver ficha del cliente
+                </Link>
+              )}
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -265,8 +273,14 @@ const PedidoDetalle = () => {
                 <div key={item.id} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">
+                      <h4 className="font-semibold text-gray-900 flex items-center gap-2">
                         {item.producto_titulo}
+                        {item.cajas_vendidas && (
+                          <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                            <i className="fas fa-box mr-1"></i>
+                            Caja x{item.cajas_vendidas}
+                          </span>
+                        )}
                       </h4>
                       {item.descripcion && (
                         <p className="text-sm text-gray-600 mt-1">
