@@ -7,7 +7,14 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { getErrorInfo } from "../../utils/errorHandler";
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+// No usar toISOString() acá -- siempre da la fecha en UTC, y a partir de las
+// 21:00 hora Argentina (UTC-3) ya cruzó la medianoche UTC y devuelve "mañana".
+// Se arma la fecha desde los componentes LOCALES en cambio.
+const hoyISO = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 const ComprasList = () => {
   const { token } = useAuth();
