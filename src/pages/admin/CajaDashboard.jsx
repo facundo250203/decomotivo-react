@@ -365,7 +365,7 @@ const CajaDashboard = () => {
                     Diferencia
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ventas Efectivo
+                    Movimiento Neto Efectivo
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acumulado Efectivo
@@ -380,7 +380,7 @@ const CajaDashboard = () => {
                     Diferencia Transferencia
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ventas Transferencia
+                    Movimiento Neto Transferencia
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acumulado Transferencia
