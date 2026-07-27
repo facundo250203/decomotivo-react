@@ -387,10 +387,17 @@ const VentaDirectaForm = () => {
       return;
     }
 
-    if (Math.abs(diferencia) > 0.01) {
+    // El faltante nunca se permite. El sobrante solo se permite si hay un
+    // cliente vinculado -- el excedente se le acredita como saldo a favor
+    // (vuelto no retirado, ver ventasController.createVentaDirecta); sin
+    // cliente no hay a quién acreditarle esa plata, así que sigue bloqueando
+    // igual que antes.
+    if (diferencia < -0.01 || (diferencia > 0.01 && !clienteId)) {
       toast.warning(
-        "El monto no coincide",
-        "El efectivo + transferencia + a cuenta debe coincidir con el total a pagar.",
+        diferencia < -0.01 ? "El monto no coincide" : "Falta el cliente",
+        diferencia < -0.01
+          ? "El efectivo + transferencia + a cuenta debe coincidir con el total a pagar."
+          : "Para acreditar el vuelto como saldo a favor hay que vincular un cliente registrado.",
       );
       return;
     }
@@ -456,7 +463,18 @@ const VentaDirectaForm = () => {
 
       const response = await ventasAPI.createDirecta(ventaData, token);
       if (response.success) {
-        toast.success("Venta registrada", "La venta se cargó correctamente.");
+        // Igual que en CajaDashboard.crearCierre: el mensaje del toast se arma
+        // según lo que devolvió el backend en vez de ser siempre el mismo texto
+        // fijo, para que el vuelto acreditado como saldo a favor (ver
+        // ventasController.createVentaDirecta) quede visible en el momento,
+        // no solo mirando después la ficha del cliente.
+        const vueltoAFavor = response.data?.vuelto_a_favor || 0;
+        toast.success(
+          "Venta registrada",
+          vueltoAFavor > 0
+            ? `La venta se cargó correctamente. Se acreditaron ${formatPrecio(vueltoAFavor)} como saldo a favor del cliente.`
+            : "La venta se cargó correctamente.",
+        );
         navigate("/admin/ventas");
       }
     } catch (error) {
@@ -1198,11 +1216,21 @@ const VentaDirectaForm = () => {
                   )}
                 </div>
 
-                {Math.abs(diferencia) > 0.01 && (
+                {diferencia < -0.01 && (
                   <p className="text-sm text-red-600 mb-4">
-                    {diferencia > 0
-                      ? `Sobran ${formatPrecio(diferencia)} respecto al total a pagar.`
-                      : `Faltan ${formatPrecio(Math.abs(diferencia))} para completar el total a pagar.`}
+                    {`Faltan ${formatPrecio(Math.abs(diferencia))} para completar el total a pagar.`}
+                  </p>
+                )}
+
+                {diferencia > 0.01 && (
+                  <p
+                    className={`text-sm mb-4 ${
+                      clienteId ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {clienteId
+                      ? `Se acreditarán ${formatPrecio(diferencia)} como saldo a favor del cliente.`
+                      : `Sobran ${formatPrecio(diferencia)} respecto al total a pagar.`}
                   </p>
                 )}
 

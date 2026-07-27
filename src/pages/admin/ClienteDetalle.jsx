@@ -11,6 +11,7 @@ const TIPO_MOVIMIENTO_LABEL = {
   venta_fiado: "Venta a cuenta",
   pago_cliente: "Pago",
   saldo_a_favor_aplicado: "Saldo a favor aplicado",
+  vuelto_a_favor: "Vuelto acreditado",
 };
 
 const ClienteDetalle = () => {
@@ -370,12 +371,14 @@ const ClienteDetalle = () => {
                     </div>
                     <span
                       className={`font-semibold ${
-                        mov.tipo === "pago_cliente"
+                        mov.tipo === "pago_cliente" || mov.tipo === "vuelto_a_favor"
                           ? "text-green-600"
                           : "text-gray-900"
                       }`}
                     >
-                      {mov.tipo === "pago_cliente" ? "-" : "+"}
+                      {mov.tipo === "pago_cliente" || mov.tipo === "vuelto_a_favor"
+                        ? "-"
+                        : "+"}
                       {formatPrecio(mov.monto)}
                     </span>
                   </div>

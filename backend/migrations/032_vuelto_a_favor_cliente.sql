@@ -1,0 +1,38 @@
+-- Migration 032: vuelto no retirado, acreditado como saldo a favor.
+--
+-- Hasta ahora createVentaDirecta rechazaba cualquier venta donde lo cargado
+-- (efectivo + transferencia + a cuenta) no coincidiera EXACTO con lo que
+-- había que pagar, en cualquiera de las dos direcciones (ver montoCoincide
+-- en ventasController). Eso es correcto para el faltante (nunca se puede
+-- "cerrar" una venta cobrando de menos), pero es demasiado estricto para el
+-- sobrante: un cliente que paga $1000 por una compra de $400 y no quiere el
+-- vuelto en efectivo (dueño del negocio, caso real de mostrador) no tenía
+-- forma de cargar esa venta -- el sistema la rechazaba igual que si faltara
+-- plata. Esta migración habilita esa excusa: si sobra dinero Y la venta
+-- tiene un cliente vinculado, el sobrante se acredita a su cuenta corriente
+-- en vez de bloquear la venta. Sin cliente vinculado el sobrante se sigue
+-- rechazando -- no hay a quién acreditarle esa plata (mostrador anónimo).
+--
+-- Por qué un tipo nuevo ('vuelto_a_favor') y no reusar 'pago_cliente':
+-- 'pago_cliente' representa un pago suelto del cliente contra su deuda,
+-- sin atarse 1:1 al ciclo de vida de una venta puntual (se registra a mano
+-- desde ClienteDetalle, ver registrarPagoCuentaCorriente). 'vuelto_a_favor'
+-- en cambio es crédito generado POR una venta específica, y tiene que poder
+-- revertirse atómicamente si esa venta se borra después (ver el loop de
+-- reversión en ventasController, sección DELETE de venta directa). Si se
+-- reusara 'pago_cliente' para esto, ese loop no podría distinguir "el
+-- cliente pagó deuda vieja aparte" de "esta venta puntual generó vuelto a
+-- favor" al recorrer los movimientos atados a venta_id -- ambos casos
+-- quedarían mezclados bajo el mismo tipo, y revertir uno arriesgaría
+-- revertir el otro por error (o directamente no poder filtrar cuál
+-- corresponde a la venta que se está eliminando).
+--
+-- 'vuelto_a_favor' cae solo, sin cambios de lógica, en el mismo bucket
+-- "resta" que ya usa 'pago_cliente' en calcularSaldoCliente
+-- (backend/utils/cuentaCorriente.js) y en las consultas equivalentes de
+-- reportesController: ambas expresiones ya usan un CASE que solo
+-- particulariza 'venta_fiado'/'saldo_a_favor_aplicado' como +monto y manda
+-- todo lo demás (ELSE) a -monto, así que un tipo nuevo que reste (como este)
+-- no necesita tocar ese CASE -- solo el ENUM de la columna.
+ALTER TABLE movimientos_cuenta_corriente
+  MODIFY COLUMN tipo ENUM('venta_fiado', 'pago_cliente', 'saldo_a_favor_aplicado', 'vuelto_a_favor') NOT NULL;

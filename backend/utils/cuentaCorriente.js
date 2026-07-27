@@ -3,6 +3,11 @@
 // Se calcula sumando movimientos_cuenta_corriente en vez de guardar un
 // total mutable, mismo patrón que cajaController usa para el saldo de caja
 // (ver migración 023 para el detalle de qué tipo suma y cuál resta).
+// 'pago_cliente' y 'vuelto_a_favor' (ver migración 032) comparten el bucket
+// "resta": los dos le dan crédito al cliente, uno por un pago suelto contra
+// su deuda y el otro por vuelto de una venta puntual que no retiró -- el
+// CASE de abajo no necesita distinguirlos porque a los fines del saldo
+// pesan igual, solo cambia cómo y cuándo se genera cada uno.
 const calcularSaldoCliente = async (executor, clienteId) => {
   const [rows] = await executor.query(
     `SELECT COALESCE(SUM(

@@ -127,6 +127,11 @@ const getPedidosEstancados = async (dias = 3) => {
 // importar si la deuda vino de un pedido señado o de una venta directa a
 // cuenta. Compartida con n8nController, mismo patrón que
 // getPedidosPagoPendiente/getPedidosEstancados.
+//
+// El CASE solo particulariza 'venta_fiado'/'saldo_a_favor_aplicado' como
+// +monto; todo lo demás (ELSE) resta, incluido 'vuelto_a_favor' (ver
+// migración 032) sin necesidad de tocar esta consulta -- mismo criterio que
+// calcularSaldoCliente (cuentaCorriente.js).
 // ============================================
 const getClientesConDeuda = async () => {
   const [rows] = await promisePool.query(
@@ -167,6 +172,10 @@ const getClientesConDeuda = async () => {
 // otra alerta lo esté cubriendo. Uso exclusivo de n8nController --
 // getClientesConDeuda (arriba) sigue siendo la versión "todo junto" que
 // usa el Dashboard.
+//
+// Mismo CASE que getClientesConDeuda: solo particulariza 'venta_fiado'/
+// 'saldo_a_favor_aplicado' como +monto, 'vuelto_a_favor' (migración 032)
+// cae solo en el ELSE que resta.
 // ============================================
 const getClientesConDeudaMostrador = async () => {
   const [rows] = await promisePool.query(

@@ -472,15 +472,32 @@ const createVentaDirecta = async (req, res) => {
     const montoCargado =
       efectivoValidado + transferenciaValidada + montoCuentaCorrienteNum;
 
+    // El faltante nunca se permite (con o sin cliente): cerrar una venta
+    // cobrando de menos sería directamente regalar mercadería. El sobrante,
+    // en cambio, solo se permite si hay a quién acreditarle esa plata -- un
+    // cliente vinculado a la venta. Caso real de mostrador: el cliente paga
+    // $1000 por una compra de $400 y no quiere el vuelto en efectivo: ese
+    // sobrante pasa a ser saldo a favor del cliente (tipo 'vuelto_a_favor',
+    // ver migración 032) en vez de bloquear la venta. Sin cliente vinculado
+    // (mostrador anónimo) el sobrante se sigue rechazando igual que antes --
+    // no hay cuenta corriente donde acreditarlo.
+    let vueltoAFavor = 0;
     if (!montoCoincide(montoCargado, montoAPagar)) {
-      await connection.rollback();
-      return res.status(400).json({
-        success: false,
-        error:
-          saldoAFavorAplicado > 0
-            ? `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total a pagar (${montoAPagar.toFixed(2)}), ya descontado el saldo a favor aplicado (${saldoAFavorAplicado.toFixed(2)})`
-            : `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total de los productos menos el descuento (${montoEsperado.toFixed(2)})`,
-      });
+      const diferenciaCargo = montoCargado - montoAPagar;
+      const esFaltante = diferenciaCargo < 0;
+
+      if (esFaltante || !cliente_id) {
+        await connection.rollback();
+        return res.status(400).json({
+          success: false,
+          error:
+            saldoAFavorAplicado > 0
+              ? `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total a pagar (${montoAPagar.toFixed(2)}), ya descontado el saldo a favor aplicado (${saldoAFavorAplicado.toFixed(2)})`
+              : `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total de los productos menos el descuento (${montoEsperado.toFixed(2)})`,
+        });
+      }
+
+      vueltoAFavor = Math.round(diferenciaCargo * 100) / 100;
     }
 
     // Con saldo a favor cubriendo todo (montoAPagar === 0) es válido no
@@ -725,6 +742,20 @@ const createVentaDirecta = async (req, res) => {
       });
     }
 
+    // Vuelto no retirado (ver validación de montoCargado/montoAPagar más
+    // arriba): ya se confirmó ahí que solo llega acá con vueltoAFavor > 0
+    // cuando hay cliente vinculado, así que no hace falta re-chequear
+    // cliente_id en este punto.
+    if (vueltoAFavor > 0) {
+      await registrarMovimientoCuentaCorriente(connection, {
+        clienteId: cliente_id,
+        tipo: "vuelto_a_favor",
+        monto: vueltoAFavor,
+        ventaId,
+        notas: "Vuelto no retirado por el cliente, acreditado a su cuenta",
+      });
+    }
+
     await connection.commit();
 
     res.status(201).json({
@@ -734,6 +765,7 @@ const createVentaDirecta = async (req, res) => {
         id: ventaId,
         monto_total: montoCargado,
         saldo_a_favor_aplicado: saldoAFavorAplicado,
+        vuelto_a_favor: vueltoAFavor,
       },
     });
   } catch (error) {
@@ -1119,11 +1151,20 @@ const deleteVentaDirecta = async (req, res) => {
     }
 
     // Reversión de cuenta corriente: por cada movimiento que esta venta haya
-    // generado (venta_fiado o saldo_a_favor_aplicado, los dos tipos que
-    // createVentaDirecta puede registrar), se compensa con un pago_cliente
-    // del mismo monto. ventaId se mantiene apuntando a la venta que se está
-    // por borrar -- el FK tiene ON DELETE SET NULL (migración 023), así que
-    // el DELETE de más abajo lo deja en NULL solo, sin romper esta fila.
+    // generado (venta_fiado, saldo_a_favor_aplicado o vuelto_a_favor, los
+    // tres tipos que createVentaDirecta puede registrar), se compensa con un
+    // movimiento de signo contrario del mismo monto. ventaId se mantiene
+    // apuntando a la venta que se está por borrar -- el FK tiene ON DELETE
+    // SET NULL (migración 023), así que el DELETE de más abajo lo deja en
+    // NULL solo, sin romper esta fila.
+    //
+    // venta_fiado/saldo_a_favor_aplicado caen en el bucket "+monto" de
+    // calcularSaldoCliente, así que se compensan restando: un pago_cliente
+    // (bucket "-monto"). vuelto_a_favor es al revés -- ya cae en el bucket
+    // "-monto" (le da saldo a favor al cliente), así que revertirlo hay que
+    // sumarlo de vuelta: un venta_fiado (bucket "+monto") del mismo monto,
+    // que le quita al cliente el crédito que se le había otorgado por esta
+    // venta.
     const [movimientosCC] = await connection.query(
       "SELECT * FROM movimientos_cuenta_corriente WHERE venta_id = ?",
       [id],
@@ -1136,6 +1177,14 @@ const deleteVentaDirecta = async (req, res) => {
           monto: parseFloat(mov.monto),
           ventaId: id,
           notas: `Reversión por eliminación de la venta #${id}`,
+        });
+      } else if (mov.tipo === "vuelto_a_favor") {
+        await registrarMovimientoCuentaCorriente(connection, {
+          clienteId: mov.cliente_id,
+          tipo: "venta_fiado",
+          monto: parseFloat(mov.monto),
+          ventaId: id,
+          notas: `Reversión de vuelto acreditado por eliminación de la venta #${id}`,
         });
       }
     }
