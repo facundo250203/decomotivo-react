@@ -1,11 +1,13 @@
 const { promisePool } = require("../config/database");
 const {
   getTopProductos,
+  getTopProductosPorCantidad,
   getStockBajo,
   getPedidosPagoPendiente: fetchPedidosPagoPendiente,
   getPedidosEstancados: fetchPedidosEstancados,
   getClientesConDeuda: fetchClientesConDeuda,
   getClientesConDeudaMostrador: fetchClientesConDeudaMostrador,
+  getClientesInactivos: fetchClientesInactivos,
 } = require("./reportesController");
 
 // Intl.DateTimeFormat con timeZone explícito, no toISOString() -- da la
@@ -33,6 +35,12 @@ const getResumenSemanal = async (req, res) => {
     const dias = parseInt(req.query.dias) || 7;
     const desde = haceDias(dias);
     const hasta = hoyISO();
+    // Período anterior, mismo largo, inmediatamente antes de "desde" --
+    // para que la IA pueda comparar tendencia sin tener que calcular el
+    // % ella misma (ver decisión en n8n/alertas-diarias-workflow: el
+    // cálculo va en código, la IA solo opina sobre el resultado ya hecho).
+    const desdeAnterior = haceDias(dias * 2);
+    const hastaAnterior = haceDias(dias + 1);
 
     const [ventasRows] = await promisePool.query(
       `SELECT COALESCE(SUM(monto_efectivo), 0) as efectivo,
@@ -42,7 +50,24 @@ const getResumenSemanal = async (req, res) => {
       [desde, hasta],
     );
 
+    const [ventasAnteriorRows] = await promisePool.query(
+      `SELECT COALESCE(SUM(monto_total), 0) as total
+       FROM ventas WHERE DATE(fecha) BETWEEN ? AND ?`,
+      [desdeAnterior, hastaAnterior],
+    );
+
+    const totalActual = parseFloat(ventasRows[0].total);
+    const totalAnterior = parseFloat(ventasAnteriorRows[0].total);
+    const variacionPct =
+      totalAnterior > 0
+        ? ((totalActual - totalAnterior) / totalAnterior) * 100
+        : null;
+
     const topProductos = await getTopProductos(desde, hasta);
+    // Por cantidad, no por plata -- ver comentario en getTopProductosPorCantidad
+    // (reportesController.js): para decidir reposición urgente importa la
+    // velocidad de venta, no la facturación.
+    const topProductosPorCantidad = await getTopProductosPorCantidad(desde, hasta);
 
     // stock_bajo/clientes_con_deuda son estado ACTUAL (no del rango
     // desde/hasta) -- mismo criterio que ya usa getResumen del dashboard.
@@ -65,9 +90,15 @@ const getResumenSemanal = async (req, res) => {
         facturacion: {
           efectivo: parseFloat(ventasRows[0].efectivo),
           transferencia: parseFloat(ventasRows[0].transferencia),
-          total: parseFloat(ventasRows[0].total),
+          total: totalActual,
+        },
+        comparativa: {
+          periodo_anterior: { desde: desdeAnterior, hasta: hastaAnterior },
+          facturacion_total_anterior: totalAnterior,
+          variacion_pct: variacionPct === null ? null : parseFloat(variacionPct.toFixed(1)),
         },
         top_productos: topProductos.slice(0, 5),
+        top_productos_por_cantidad: topProductosPorCantidad.slice(0, 5),
         stock_bajo: stockBajo,
         clientes_con_deuda: clientesConDeuda,
         ultimo_cierre_caja:
@@ -166,9 +197,35 @@ const getClientesConDeuda = async (req, res) => {
   }
 };
 
+// ============================================
+// CLIENTES INACTIVOS (compraban seguido y hace tiempo no vuelven)
+// GET /api/n8n/clientes-inactivos?comprasMinimas=3&diasSinComprar=21
+// ============================================
+const getClientesInactivos = async (req, res) => {
+  try {
+    const comprasMinimas = parseInt(req.query.comprasMinimas) || 3;
+    const diasSinComprar = parseInt(req.query.diasSinComprar) || 21;
+    const data = await fetchClientesInactivos(comprasMinimas, diasSinComprar);
+
+    res.json({
+      success: true,
+      count: data.length,
+      data,
+    });
+  } catch (error) {
+    console.error("Error obteniendo clientes inactivos:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al obtener clientes inactivos",
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   getResumenSemanal,
   getPedidosPagoPendiente,
   getPedidosEstancados,
   getClientesConDeuda,
+  getClientesInactivos,
 };

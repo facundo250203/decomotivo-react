@@ -200,6 +200,38 @@ const getClientesConDeudaMostrador = async () => {
 };
 
 // ============================================
+// CLIENTES INACTIVOS (compraban seguido y hace tiempo no vuelven). Umbral
+// doble a propósito: sin el mínimo de compras, cualquiera que compró una
+// sola vez hace tiempo entraría como "inactivo", cuando nunca fue un
+// cliente recurrente. Exclusivo de n8nController (alerta de reactivación).
+// ============================================
+const getClientesInactivos = async (comprasMinimas = 3, diasSinComprar = 21) => {
+  const [rows] = await promisePool.query(
+    `SELECT cl.id, CONCAT_WS(' ', cl.nombre, cl.apellido) as nombre, cl.telefono,
+      COUNT(v.id) as cantidad_compras,
+      MAX(v.fecha) as ultima_compra,
+      DATEDIFF(NOW(), MAX(v.fecha)) as dias_sin_comprar
+     FROM ventas v
+     JOIN clientes cl ON cl.id = v.cliente_id
+     WHERE v.tipo != 'pago_cuenta_corriente'
+     GROUP BY cl.id, cl.nombre, cl.apellido, cl.telefono
+     HAVING cantidad_compras >= ? AND dias_sin_comprar >= ?
+     ORDER BY dias_sin_comprar DESC
+     LIMIT 15`,
+    [comprasMinimas, diasSinComprar],
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
+    telefono: r.telefono,
+    cantidad_compras: parseInt(r.cantidad_compras),
+    ultima_compra: r.ultima_compra,
+    dias_sin_comprar: parseInt(r.dias_sin_comprar),
+  }));
+};
+
+// ============================================
 // VENTAS POR CATEGORÍA
 // ============================================
 const getVentasPorCategoria = async (desde, hasta) => {
@@ -233,6 +265,33 @@ const getTopProductos = async (desde, hasta) => {
      JOIN productos p ON p.id = items.producto_id
      GROUP BY p.id, p.titulo
      ORDER BY total_facturado DESC
+     LIMIT 10`,
+    [desde, hasta, desde, hasta],
+  );
+  return rows.map((r) => ({
+    titulo: r.titulo,
+    cantidad_vendida: parseInt(r.cantidad_vendida),
+    total_facturado: parseFloat(r.total_facturado),
+  }));
+};
+
+// ============================================
+// TOP PRODUCTOS POR CANTIDAD (no por facturación). getTopProductos ordena
+// por plata, así que un producto caro vendido 1 sola vez puede ganarle en
+// el ranking a otro barato vendido 200 veces -- para decidir qué reponer
+// antes de que se agote (velocidad de venta), lo que importa es cuánto se
+// vendió, no cuánto dejó. Exclusivo de n8nController (alerta diaria de
+// reposición urgente).
+// ============================================
+const getTopProductosPorCantidad = async (desde, hasta) => {
+  const [rows] = await promisePool.query(
+    `SELECT p.titulo,
+      SUM(items.cantidad) as cantidad_vendida,
+      SUM(items.cantidad * items.precio_unitario) as total_facturado
+     FROM (${ITEMS_VENDIDOS_SUBQUERY}) items
+     JOIN productos p ON p.id = items.producto_id
+     GROUP BY p.id, p.titulo
+     ORDER BY cantidad_vendida DESC
      LIMIT 10`,
     [desde, hasta, desde, hasta],
   );
@@ -538,15 +597,17 @@ const getResumen = async (req, res) => {
 };
 
 // getTopProductos/getStockBajo/getPedidosPagoPendiente/getPedidosEstancados/
-// getClientesConDeuda también se reutilizan desde n8nController (reporte
-// semanal y polling), para no duplicar las mismas consultas en dos
-// controllers.
+// getClientesConDeuda/getClientesInactivos también se reutilizan desde
+// n8nController (reporte semanal y polling), para no duplicar las mismas
+// consultas en dos controllers.
 module.exports = {
   getResumen,
   getTopProductos,
+  getTopProductosPorCantidad,
   getStockBajo,
   getPedidosPagoPendiente,
   getPedidosEstancados,
   getClientesConDeuda,
   getClientesConDeudaMostrador,
+  getClientesInactivos,
 };
