@@ -48,8 +48,16 @@ const formatPrecio = (valor) =>
     valor || 0,
   );
 
-const formatFechaCorta = (fecha) =>
-  new Date(fecha).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+// No usar new Date(fecha).toLocaleDateString() -- si "fecha" llega sin hora
+// (ej. "2026-07-21", como manda facturacion_serie desde su CTE recursivo,
+// donde MySQL no tipa la columna como DATE real), JS la interpreta como
+// medianoche UTC y el navegador la corre un día para atrás al mostrarla en
+// -03:00. Parsear los componentes directo del string evita depender de la
+// hora y de la zona horaria del que mire el dashboard.
+const formatFechaCorta = (fecha) => {
+  const [, mes, dia] = fecha.slice(0, 10).split("-");
+  return `${dia}/${mes}`;
+};
 
 // Tarjeta contenedora, compartida por todas las secciones del dashboard.
 const Panel = ({ titulo, children }) => (
