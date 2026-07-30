@@ -310,12 +310,23 @@ const crearCierre = async (req, res) => {
 
     const row = creado[0];
 
+    // efectivo_esperado/transferencia_esperado (crudo) son el MOVIMIENTO NETO
+    // de hoy, no el total esperado en caja -- pueden dar negativos (ver
+    // comentario en crearCierre). Se mandan igual por compatibilidad, pero
+    // *_esperado_total es el valor que de verdad conviene mostrar en el
+    // mail: mismo cálculo que ya usa CajaDashboard.jsx para su columna
+    // "Esperado" (contado - diferencia), sin el movimiento neto crudo.
     notificarN8N("cierre_caja", {
       fecha: row.fecha,
       efectivo_esperado: parseFloat(row.efectivo_esperado),
+      efectivo_esperado_total:
+        parseFloat(row.efectivo_contado) - parseFloat(row.diferencia_efectivo),
       efectivo_contado: parseFloat(row.efectivo_contado),
       diferencia_efectivo: parseFloat(row.diferencia_efectivo),
       transferencia_esperado: parseFloat(row.transferencia_esperado),
+      transferencia_esperado_total:
+        parseFloat(row.transferencia_contado) -
+        parseFloat(row.diferencia_transferencia),
       transferencia_contado: parseFloat(row.transferencia_contado),
       diferencia_transferencia: parseFloat(row.diferencia_transferencia),
       acumulado_efectivo: parseFloat(row.acumulado_efectivo),
