@@ -123,7 +123,7 @@ const createCompra = async (req, res) => {
 
   try {
     const { proveedor_id, notas, items } = req.body;
-    let { monto_efectivo = 0, monto_transferencia = 0 } = req.body;
+    let { monto_efectivo = 0, monto_transferencia = 0, descuento = 0 } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({
@@ -137,14 +137,34 @@ const createCompra = async (req, res) => {
     if (esProduccionPropia) {
       monto_efectivo = 0;
       monto_transferencia = 0;
+      descuento = 0;
     } else {
+      descuento = parseFloat(descuento) || 0;
+
+      if (descuento < 0) {
+        return res.status(400).json({
+          success: false,
+          error: "El descuento no puede ser negativo",
+        });
+      }
+
+      // El descuento del proveedor se resta del total esperado, no de cada
+      // item -- el precio unitario cargado en cada producto no cambia.
       const sumaItems = items.reduce(
         (acc, item) =>
           acc + parseFloat(item.costo_unitario) * parseInt(item.cantidad),
         0,
       );
+      const totalConDescuento = sumaItems - descuento;
       const montoCargado =
         parseFloat(monto_efectivo) + parseFloat(monto_transferencia);
+
+      if (descuento > sumaItems) {
+        return res.status(400).json({
+          success: false,
+          error: `El descuento (${descuento.toFixed(2)}) no puede superar el total de los productos (${sumaItems.toFixed(2)})`,
+        });
+      }
 
       if (montoCargado <= 0) {
         return res.status(400).json({
@@ -154,16 +174,19 @@ const createCompra = async (req, res) => {
         });
       }
 
-      if (!montoCoincide(montoCargado, sumaItems)) {
+      if (!montoCoincide(montoCargado, totalConDescuento)) {
         return res.status(400).json({
           success: false,
-          error: `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total de los productos (${sumaItems.toFixed(2)})`,
+          error: `El monto cargado (${montoCargado.toFixed(2)}) no coincide con el total de los productos con descuento (${totalConDescuento.toFixed(2)})`,
         });
       }
     }
 
     await connection.beginTransaction();
 
+    // El descuento ya se usó arriba para validar monto_efectivo +
+    // monto_transferencia -- no se persiste como columna propia porque el
+    // total pagado (monto_total) ya lo refleja.
     const [compraResult] = await connection.query(
       `INSERT INTO compras (proveedor_id, monto_efectivo, monto_transferencia, notas)
        VALUES (?, ?, ?, ?)`,

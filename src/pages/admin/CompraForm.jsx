@@ -27,6 +27,7 @@ const CompraForm = () => {
   const [proveedorId, setProveedorId] = useState("");
   const [montoEfectivo, setMontoEfectivo] = useState("");
   const [montoTransferencia, setMontoTransferencia] = useState("");
+  const [descuento, setDescuento] = useState("");
   const [notas, setNotas] = useState("");
 
   const [items, setItems] = useState([
@@ -99,7 +100,8 @@ const CompraForm = () => {
   const esProduccionPropia = origen === "propia";
   const montoCargado =
     (parseFloat(montoEfectivo) || 0) + (parseFloat(montoTransferencia) || 0);
-  const diferencia = montoCargado - calcularSumaItems();
+  const totalConDescuento = calcularSumaItems() - (parseFloat(descuento) || 0);
+  const diferencia = montoCargado - totalConDescuento;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -133,10 +135,18 @@ const CompraForm = () => {
         toast.warning("Proveedor requerido", "Seleccioná un proveedor.");
         return;
       }
+      if ((parseFloat(descuento) || 0) > calcularSumaItems()) {
+        toast.warning(
+          "Descuento inválido",
+          "El descuento no puede superar el total de los productos.",
+        );
+        return;
+      }
+
       if (Math.abs(diferencia) > 0.01) {
         toast.warning(
           "El monto no coincide",
-          "El efectivo + transferencia debe coincidir con el total de los productos.",
+          "El efectivo + transferencia debe coincidir con el total de los productos menos el descuento.",
         );
         return;
       }
@@ -150,6 +160,7 @@ const CompraForm = () => {
         monto_transferencia: esProduccionPropia
           ? 0
           : parseFloat(montoTransferencia) || 0,
+        descuento: esProduccionPropia ? 0 : parseFloat(descuento) || 0,
         notas: notas || undefined,
         items: itemsValidos.map((item) => ({
           producto_id: parseInt(item.producto_id),
@@ -442,6 +453,32 @@ const CompraForm = () => {
                   </p>
                 ) : (
                   <>
+                    <div className="mb-4">
+                      <label className="block text-sm text-gray-600 mb-1">
+                        Descuento del proveedor
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={descuento}
+                        onChange={(e) => setDescuento(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                        placeholder="0.00"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Descuento sobre el total de la factura -- no altera el
+                        costo unitario cargado en cada producto.
+                      </p>
+                    </div>
+
+                    {(parseFloat(descuento) || 0) > 0 && (
+                      <div className="flex justify-between text-sm font-semibold text-gray-900 pb-4 border-b mb-4">
+                        <span>Total con descuento:</span>
+                        <span>{formatPrecio(totalConDescuento)}</span>
+                      </div>
+                    )}
+
                     <div className="space-y-3 mb-4">
                       <div>
                         <label className="block text-sm text-gray-600 mb-1">
