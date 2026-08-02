@@ -1,0 +1,19 @@
+# robots.txt para DecoMotivo
+
+# Permitir a todos los bots rastrear el sitio
+User-agent: *
+Allow: /
+
+# Bloquear acceso a archivos PHP (backend)
+Disallow: /procesar-contacto.php
+
+# Bloquear carpetas de sistema (si existen)
+Disallow: /.git/
+Disallow: /.vscode/
+Disallow: /node_modules/
+
+# Bloquear páginas que no necesitan indexación
+Disallow: /gracias
+
+# Ubicación del sitemap
+Sitemap: https://www.decomotivo.com.ar/sitemap.xml
